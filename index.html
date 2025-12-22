@@ -1,0 +1,760 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>34 Lanterns</title>
+  <style>
+  :root{
+    --ink:#e8f4ff; --muted:#b7c9d6;
+    --lantern-w:48px;
+    --drift-slow:60s;
+    --rise-slow:80s;
+    --gap:12px;
+    --lantern-dim: 0.68;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
+    color:var(--ink); background:#000; overflow:hidden; position:relative;
+  }
+
+  .hud {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    z-index: 3;
+    display: flex;
+    gap: var(--gap);
+    flex-wrap: wrap;
+    align-items: flex-start;
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+
+  /* Stars */
+  #sky{
+    position:fixed; inset:0; z-index:0; width:100%; height:100%;
+    object-fit:cover; object-position:center; display:block;
+    filter:brightness(1.1) contrast(1.08);
+  }
+
+  /* Header (brand only) */
+  header{
+    position:fixed; top:16px; left:16px; right:16px; z-index:3;
+    display:flex; gap:12px; align-items:center; color:#fff;
+  }
+  .brand{ letter-spacing:.35rem; text-transform:lowercase; font-weight:700; }
+
+  /* Lantern lane */
+  .lane{
+    position:fixed; left:0; right:0; top:96px; bottom:196px;
+    z-index:1; min-height:200px;
+  }
+
+  /* Lanterns + motion */
+  .lantern{
+    position:absolute; width:var(--lantern-w);
+    filter:drop-shadow(0 2px 2px rgba(0,0,0,.35));
+    cursor:pointer;
+  }
+  .lantern .inner{
+    filter: brightness(var(--lantern-dim));
+    transition:filter .18s ease;
+    display:block;
+    animation:bob 3.8s ease-in-out infinite;
+  }
+  .lantern:hover .inner,
+  .lantern:focus-visible .inner{
+    filter: brightness(calc(var(--lantern-dim) + 0.08));
+  }
+  .lantern img{
+    width:100%; height:auto; display:block; will-change: filter;
+  }
+
+  @keyframes drift { from{ transform:translateX(-120px) } to{ transform:translateX(calc(100vw + 120px)) } }
+  @keyframes rise  { from{ transform:translateY(140px) } to{ transform:translateY(-120vh) } }
+  @keyframes bob   { 0%{transform:translateY(0)} 50%{transform:translateY(4px)} 100%{transform:translateY(0)} }
+
+  .lantern.drift{ animation:drift var(--drift-slow) linear infinite }
+  .lantern.rise { animation:rise  var(--rise-slow)  linear infinite }
+
+  .lantern:focus-visible{
+    outline:2px solid #9ad1ff; outline-offset:2px; border-radius:8px;
+  }
+
+  /* Popover */
+  .popover{
+    position:fixed; z-index:4; max-width:min(60ch,72vw);
+    background:#0f2434; color:var(--ink);
+    border:1px solid #38556b; border-radius:12px;
+    padding:14px 48px 12px 14px; box-shadow:0 24px 48px rgba(0,0,0,.45);
+    display:none; line-height:1.45; word-break:break-word;
+  }
+  .popover .when{
+    display:block; font-size:.85rem; color:var(--muted); margin-top:6px;
+  }
+  .popover .close{
+    position:absolute; top:8px; right:8px; width:28px; height:28px;
+    display:grid; place-items:center;
+    font-size:16px; line-height:1; cursor:pointer; color:#cfe6f6;
+    border-radius:999px; background:#143047; border:1px solid #38556b;
+  }
+  .popover .close:hover{ background:#163a58 }
+  .popover::after{
+    content:""; position:absolute; width:0; height:0; border:8px solid transparent;
+  }
+  .popover.arrow-left::after{
+    left:-1px; top:14px; transform:translateX(-100%); border-right-color:#0f2434;
+  }
+  .popover.arrow-right::after{
+    right:-1px; top:14px; transform:translateX(100%); border-left-color:#0f2434;
+  }
+  .popover.arrow-top::after{
+    top:-1px; left:16px; transform:translateY(-100%); border-bottom-color:#0f2434;
+  }
+  .popover.arrow-bottom::after{
+    bottom:-1px; left:16px; transform:translateY(100%); border-top-color:#0f2434;
+  }
+
+  /* HUD */
+  .card{
+    background:rgba(25,50,70,.8); border:1px solid #38556b;
+    border-radius:14px; padding:12px 14px; color:var(--ink);
+  }
+  .grow{flex:1 1 320px}
+  .meta{font-size:.9rem;color:var(--muted)}
+  .topline{
+    display:flex; align-items:baseline; justify-content:space-between;
+    gap:12px; flex-wrap:wrap;
+  }
+  .topline .hint.meta{
+    white-space:nowrap; opacity:.95;
+  }
+
+  .hud-logo{
+    position: absolute;
+    right: 16px;
+    bottom: 12px;
+    max-width: 60px;
+    height: auto;
+    z-index: 10;
+  }
+
+ .card{
+  background:rgba(25,50,70,.8);
+  border:1px solid #38556b;
+  border-radius:14px;
+  padding:8px 10px;      /* was 12px 14px */
+  color:var(--ink);
+}
+
+textarea{
+  width:100%;
+  min-height:56px;       /* was 64px */
+  max-height:100px;      /* optional clamp */
+  background:transparent;
+  border:1px dashed #476e88;
+  border-radius:10px;
+  color:var(--ink);
+  padding:6px 8px;       /* was 10px */
+  resize:vertical;
+  font-size:15px;        /* was 16px */
+}
+
+.row{
+  display:flex;
+  gap:8px;               /* was 10px */
+  align-items:center;
+  justify-content:space-between;
+  margin-top:4px;        /* was 8px */
+}
+
+.btn,
+.pill button,
+.pill a.linkbtn{
+  padding:8px 10px;      /* was 10px 14px (or 12px 14px on mobile) */
+  font-size:15px;        /* a bit smaller */
+}
+  .btn.secondary{
+    background:transparent; color:var(--ink); border:1px solid #476e88;
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn[disabled]{ opacity:.55; cursor:not-allowed; filter:grayscale(20%) }
+
+  /* Pills + link buttons */
+  .pill{
+    display:flex; gap:8px; align-items:center;
+    border:1px solid #38556b; border-radius:999px;
+    padding:8px 10px; background:rgba(25,50,70,.6);
+    backdrop-filter:blur(4px); color:var(--ink);
+  }
+  .pill button, .pill a.linkbtn{
+    cursor:pointer; border:1px solid #476e88; background:#e3f3ff; color:#0b2231;
+    font-weight:700; border-radius:10px; padding:8px 12px; font-size:16px;
+    text-decoration:none; display:inline-block;
+  }
+  .pill .mute{
+    background:transparent; color:var(--ink); border-color:#476e88;
+  }
+  .pill button:disabled{ opacity:.5; cursor:not-allowed }
+
+  /* Toast */
+  .toast{
+    position:fixed; left:50%; transform:translateX(-50%);
+    bottom:110px; background:rgba(25,50,70,.9);
+    border:1px solid #38556b; border-radius:10px;
+    padding:8px 12px; color:#d2e5f3; font-size:.95rem;
+    display:none; z-index:4;
+  }
+  .toast.show{display:block}
+
+  /* Counter badge */
+  .inputwrap{ position:relative; display:block }
+  .inputwrap textarea{ padding-right:72px }
+  .counter{
+    position:absolute; right:12px; bottom:10px; font-size:.9rem; color:var(--muted);
+    background:rgba(20,40,60,.65); border:1px solid #476e88;
+    border-radius:999px; padding:2px 10px; line-height:1.6; pointer-events:none;
+  }
+  .counter.warn{  color:#ffd972; border-color:#c9a04a }
+  .counter.limit{ color:#ffb3b3; border-color:#cc6b6b }
+
+  /* Responsive */
+  @media (max-width:700px){
+    :root{ --lantern-w:56px; --gap:10px }
+    header{ top:12px; left:12px; right:12px }
+    .lane{ top:80px; bottom:220px }
+    textarea{ min-height:84px; font-size:17px }
+    .btn, .pill button, .pill a.linkbtn{ padding:12px 14px; font-size:17px }
+    .topline .hint.meta{ white-space:normal }
+  }
+  @media (max-width:420px){
+    :root{ --lantern-w:64px; --gap:8px }
+    .lane{ top:76px; bottom:236px }
+    .brand{ letter-spacing:.2rem }
+    .hud{ left:12px; right:12px; bottom:12px }
+    .card{ padding:10px 12px }
+    .popover{ max-width:92vw }
+  }
+  @media (max-height:640px){
+    .lane{ bottom:210px }
+    textarea{ min-height:72px }
+  }
+
+  /* Flicker keyframes */
+  @keyframes flickerA {
+    0%   { filter: brightness(0.78) saturate(0.98); }
+    12%  { filter: brightness(1.10) saturate(1.04); }
+    25%  { filter: brightness(0.72) saturate(0.94); }
+    47%  { filter: brightness(1.06) saturate(1.03); }
+    63%  { filter: brightness(0.74) saturate(0.95); }
+    78%  { filter: brightness(1.08) saturate(1.04); }
+    100% { filter: brightness(0.79) saturate(0.98); }
+  }
+  @keyframes flickerB {
+    0%   { filter: brightness(0.76) saturate(0.98); }
+    8%   { filter: brightness(1.12) saturate(1.05); }
+    19%  { filter: brightness(0.70) saturate(0.93); }
+    41%  { filter: brightness(1.05) saturate(1.03); }
+    66%  { filter: brightness(0.74) saturate(0.95); }
+    89%  { filter: brightness(1.09) saturate(1.04); }
+    100% { filter: brightness(0.76) saturate(0.98); }
+  }
+  @keyframes flickerC {
+    0%   { filter: brightness(0.77) saturate(0.98); }
+    10%  { filter: brightness(1.08) saturate(1.04); }
+    32%  { filter: brightness(0.71) saturate(0.93); }
+    50%  { filter: brightness(1.07) saturate(1.04); }
+    70%  { filter: brightness(0.73) saturate(0.95); }
+    100% { filter: brightness(0.77) saturate(0.98); }
+  }
+  @keyframes flickerD {
+    0%   { filter: brightness(0.78) saturate(0.98); }
+    14%  { filter: brightness(1.12) saturate(1.05); }
+    22%  { filter: brightness(0.70) saturate(0.92); }
+    58%  { filter: brightness(1.05) saturate(1.03); }
+    83%  { filter: brightness(0.73) saturate(0.94); }
+    100% { filter: brightness(0.78) saturate(0.98); }
+  }
+
+  /* About panel */
+  #about-panel-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.6);
+    z-index:5; display:none;
+  }
+  #about-panel{
+    position:fixed; inset:auto 10% 10% 10%;
+    top:10%;
+    max-width:700px; margin:0 auto;
+    background:#0f2434; color:var(--ink);
+    border-radius:12px; border:1px solid #38556b;
+    padding:18px 20px 16px;
+    z-index:6; display:none; overflow:auto;
+    box-shadow:0 24px 48px rgba(0,0,0,.6);
+  }
+  #about-panel h1,
+  #about-panel h2{
+    margin-top:0;
+  }
+  #about-close{
+    position:absolute; top:10px; right:10px;
+    width:28px; height:28px; border-radius:999px;
+    border:1px solid #38556b; background:#143047;
+    color:#cfe6f6; cursor:pointer;
+    display:grid; place-items:center;
+  }
+  #about-close:hover{ background:#163a58 }
+  #about-panel .meta{color:var(--muted);}
+</style>
+</head>
+<body>
+  <img id="sky" alt="" aria-hidden="true" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%221200%22%20height%3D%22675%22%20viewBox%3D%220%200%201200%20675%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23000%22/%3E%3Ccircle%20cx%3D%221083%22%20cy%3D%22365%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%2261%22%20cy%3D%22398%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22868%22%20cy%3D%22313%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%221196%22%20cy%3D%22523%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22561%22%20cy%3D%22355%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%221072%22%20cy%3D%2288%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22522%22%20cy%3D%22565%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22341%22%20cy%3D%22602%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22781%22%20cy%3D%22321%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22927%22%20cy%3D%22548%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22268%22%20cy%3D%22586%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22868%22%20cy%3D%22241%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%221189%22%20cy%3D%2276%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22849%22%20cy%3D%22119%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22357%22%20cy%3D%22415%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22184%22%20cy%3D%22532%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22945%22%20cy%3D%22371%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22563%22%20cy%3D%22143%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22606%22%20cy%3D%22318%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%221058%22%20cy%3D%22106%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22465%22%20cy%3D%22417%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22725%22%20cy%3D%22624%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22146%22%20cy%3D%2250%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22657%22%20cy%3D%22177%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22700%22%20cy%3D%22493%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%224%22%20cy%3D%22629%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%221090%22%20cy%3D%2259%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22241%22%20cy%3D%22513%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%221121%22%20cy%3D%22469%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22315%22%20cy%3D%22479%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22771%22%20cy%3D%22151%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22667%22%20cy%3D%22608%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22544%22%20cy%3D%22462%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22833%22%20cy%3D%22473%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22346%22%20cy%3D%22148%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22820%22%20cy%3D%22532%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%221059%22%20cy%3D%22464%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22840%22%20cy%3D%22593%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22545%22%20cy%3D%22567%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22308%22%20cy%3D%22519%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22574%22%20cy%3D%225%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22993%22%20cy%3D%22510%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%221091%22%20cy%3D%22532%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22700%22%20cy%3D%22349%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%2272%22%20cy%3D%22329%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22783%22%20cy%3D%22516%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%2217%22%20cy%3D%2264%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22809%22%20cy%3D%2298%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%2273%22%20cy%3D%22171%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22197%22%20cy%3D%22652%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22380%22%20cy%3D%2245%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22833%22%20cy%3D%22355%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22224%22%20cy%3D%22470%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22459%22%20cy%3D%22202%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22452%22%20cy%3D%2253%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22728%22%20cy%3D%22239%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22626%22%20cy%3D%22379%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%221151%22%20cy%3D%22310%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%221033%22%20cy%3D%22633%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22958%22%20cy%3D%22240%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22316%22%20cy%3D%22238%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22976%22%20cy%3D%22430%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%221149%22%20cy%3D%22485%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22272%22%20cy%3D%2265%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22558%22%20cy%3D%22600%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22288%22%20cy%3D%22257%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22752%22%20cy%3D%22499%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%221051%22%20cy%3D%2295%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22440%22%20cy%3D%22594%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%221181%22%20cy%3D%22670%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22621%22%20cy%3D%225%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22619%22%20cy%3D%22282%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22418%22%20cy%3D%22492%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%221092%22%20cy%3D%22209%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22288%22%20cy%3D%22408%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22607%22%20cy%3D%22215%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22800%22%20cy%3D%22305%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22150%22%20cy%3D%22307%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%221081%22%20cy%3D%22501%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%2267%22%20cy%3D%22362%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22180%22%20cy%3D%2216%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%221117%22%20cy%3D%2221%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22921%22%20cy%3D%22417%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22165%22%20cy%3D%22656%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%221094%22%20cy%3D%22642%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22182%22%20cy%3D%22475%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%221036%22%20cy%3D%22190%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22454%22%20cy%3D%22434%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22460%22%20cy%3D%2249%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%221075%22%20cy%3D%22149%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%221016%22%20cy%3D%22346%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%222%22%20cy%3D%22105%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22822%22%20cy%3D%22338%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22677%22%20cy%3D%22584%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%2280%22%20cy%3D%22364%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%221097%22%20cy%3D%22666%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22808%22%20cy%3D%22487%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22592%22%20cy%3D%22212%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22727%22%20cy%3D%22640%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22832%22%20cy%3D%22397%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22666%22%20cy%3D%22504%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22518%22%20cy%3D%22165%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22192%22%20cy%3D%22354%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22366%22%20cy%3D%22140%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22302%22%20cy%3D%22629%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22938%22%20cy%3D%22642%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22683%22%20cy%3D%22343%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22593%22%20cy%3D%22414%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22454%22%20cy%3D%22483%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22799%22%20cy%3D%22273%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22740%22%20cy%3D%22161%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%2261%22%20cy%3D%22143%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22473%22%20cy%3D%22627%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22116%22%20cy%3D%22526%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22677%22%20cy%3D%22660%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22532%22%20cy%3D%223%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22873%22%20cy%3D%22435%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22687%22%20cy%3D%22507%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22716%22%20cy%3D%22325%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22244%22%20cy%3D%22601%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22146%22%20cy%3D%2252%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%221093%22%20cy%3D%22317%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%221100%22%20cy%3D%22272%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22842%22%20cy%3D%2269%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22328%22%20cy%3D%22463%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%221091%22%20cy%3D%22205%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22889%22%20cy%3D%22534%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22967%22%20cy%3D%2257%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%2229%22%20cy%3D%22444%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%229%22%20cy%3D%22571%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22737%22%20cy%3D%2277%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22889%22%20cy%3D%22239%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%2214%22%20cy%3D%22546%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22879%22%20cy%3D%22626%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22626%22%20cy%3D%22295%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22128%22%20cy%3D%22319%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%221102%22%20cy%3D%22540%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22763%22%20cy%3D%22111%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22127%22%20cy%3D%22128%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22302%22%20cy%3D%22328%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%221116%22%20cy%3D%22324%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22993%22%20cy%3D%22529%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22580%22%20cy%3D%22417%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22997%22%20cy%3D%22195%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22477%22%20cy%3D%22405%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22927%22%20cy%3D%22149%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22452%22%20cy%3D%22326%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22627%22%20cy%3D%2274%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22856%22%20cy%3D%22509%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22210%22%20cy%3D%22222%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%221089%22%20cy%3D%22244%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22457%22%20cy%3D%22375%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22730%22%20cy%3D%22645%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22266%22%20cy%3D%22463%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%221177%22%20cy%3D%22171%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22541%22%20cy%3D%22298%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22316%22%20cy%3D%2285%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%221037%22%20cy%3D%2278%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22693%22%20cy%3D%22324%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%221168%22%20cy%3D%22620%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22176%22%20cy%3D%22466%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%221017%22%20cy%3D%22488%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%221130%22%20cy%3D%22574%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22839%22%20cy%3D%22190%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%221001%22%20cy%3D%22223%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22192%22%20cy%3D%2284%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22895%22%20cy%3D%22222%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22360%22%20cy%3D%22672%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%2283%22%20cy%3D%2225%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22414%22%20cy%3D%22290%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22835%22%20cy%3D%22411%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%2292%22%20cy%3D%22128%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22822%22%20cy%3D%22125%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%221195%22%20cy%3D%22578%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22201%22%20cy%3D%22132%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22946%22%20cy%3D%22483%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%221128%22%20cy%3D%22343%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22522%22%20cy%3D%2293%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22562%22%20cy%3D%22381%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%221005%22%20cy%3D%22483%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3C/svg%3E">
+  
+
+
+
+<header>
+  <div class="brand">34 Lanterns</div>
+</header>
+
+<!-- Initial lanterns -->
+<div id="lane" class="lane" aria-hidden="false">
+  <div class="lantern drift" data-text="A gentle thought, adrift." style="top:12px; animation-duration:60s; animation-delay:-12s;">
+    <span class="inner">
+      <img src="https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/2c7feec3-1d0f-4ad9-9f5e-91bdecb8ef34/lantern1.png?format=1500w" alt="lantern" onerror="this.onerror=null; this.src='https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/4620ab39-1273-4bc1-99d2-018dc7cd8607/lantern1.jpg?format=1500w';">
+    </span>
+  </div>
+  <div class="lantern drift" data-text="The tide carries this quietly." style="top:82px; animation-duration:70s; animation-delay:-8s;">
+    <span class="inner">
+      <img src="https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/2c7feec3-1d0f-4ad9-9f5e-91bdecb8ef34/lantern1.png?format=1500w" alt="lantern" onerror="this.onerror=null; this.src='https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/4620ab39-1273-4bc1-99d2-018dc7cd8607/lantern1.jpg?format=1500w';">
+    </span>
+  </div>
+  <div class="lantern drift" data-text="Letting go, for tonight." style="top:152px; animation-duration:65s; animation-delay:-20s;">
+    <span class="inner">
+      <img src="https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/2c7feec3-1d0f-4ad9-9f5e-91bdecb8ef34/lantern1.png?format=1500w" alt="lantern" onerror="this.onerror=null; this.src='https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/4620ab39-1273-4bc1-99d2-018dc7cd8607/lantern1.jpg?format=1500w';">
+    </span>
+  </div>
+  <div class="lantern rise" data-text="Upward into the dark, softly." style="left:18%; animation-duration:80s; animation-delay:-9s;">
+    <span class="inner">
+      <img src="https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/2c7feec3-1d0f-4ad9-9f5e-91bdecb8ef34/lantern1.png?format=1500w" alt="lantern" onerror="this.onerror=null; this.src='https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/4620ab39-1273-4bc1-99d2-018dc7cd8607/lantern1.jpg?format=1500w';">
+    </span>
+  </div>
+  <div class="lantern rise" data-text="Another small light, rising." style="left:64%; animation-duration:90s; animation-delay:-22s;">
+    <span class="inner">
+      <img src="https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/2c7feec3-1d0f-4ad9-9f5e-91bdecb8ef34/lantern1.png?format=1500w" alt="lantern" onerror="this.onerror=null; this.src='https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/4620ab39-1273-4bc1-99d2-018dc7cd8607/lantern1.jpg?format=1500w';">
+    </span>
+  </div>
+</div>
+
+<!-- HUD logo -->
+<img src="https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/edcb5a05-28f6-45f2-87a6-859201f7dfcf/34+gallery+White+logo.jpg?format=1500w" alt="Gallery White Logo" class="hud-logo">
+
+<!-- HUD -->
+<div class="hud" aria-live="polite" aria-atomic="true">
+  <div class="card grow">
+    <div class="topline">
+      <label class="meta" for="doubt">Release a quiet doubt</label>
+      <div id="hint" class="hint meta">Click a lantern to read its note where it floats.</div>
+    </div>
+
+    <div class="inputwrap">
+      <textarea id="doubt" maxlength="500"
+        placeholder="Type a private doubt (500 chars max)"
+        aria-describedby="counter hint"></textarea>
+      <span id="counter" class="counter" aria-live="polite">500 left</span>
+    </div>
+
+    <div class="row" style="margin-top:10px;">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button class="btn secondary" id="random"
+          title="Suggest a gentle prompt if you’re not sure what to write."
+          aria-label="Inspire: suggest a gentle prompt">Inspire</button>
+
+        <button class="btn" id="release"
+          title="Create a new lantern with your text and let it drift."
+          aria-label="Release: create a new lantern with your text">Release</button>
+
+        <button class="btn secondary" id="reset"
+          title="Remove all added lanterns and clear saved notes."
+          aria-label="Reset: remove added lanterns and clear saved notes">Reset</button>
+
+        <label class="meta" style="display:inline-flex;gap:.5rem;align-items:center;">
+          <input id="privateMode" type="checkbox"
+            title="When enabled, new notes will not be saved after refresh."
+            aria-label="Private Mode: do not save new notes">
+          Private mode (no save)
+        </label>
+
+        <!-- Crickets -->
+        <div class="pill" id="cricketsCard" title="Soft mountain-night crickets">
+          <span class="meta" aria-hidden="true">Crickets</span>
+          <button id="cricketsPlay" title="Start or pause the crickets." aria-label="Crickets: play or pause">Play</button>
+          <button class="mute" id="cricketsMute" title="Mute or unmute the crickets." aria-label="Crickets: mute or unmute">Mute</button>
+        </div>
+
+        <!-- About link -->
+        <div class="pill" title="About & credits">
+          <span class="meta" aria-hidden="true">About</span>
+          <a class="linkbtn" href="#about-panel"
+            aria-label="Open About and credits" id="about-link">Open</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite">Your lantern joined the drift.</div>
+
+<!-- Popover -->
+<div id="popover" class="popover" style="display:none">
+  <span class="close" id="popClose" title="Close" aria-label="Close">✕</span>
+  <div id="popText"></div>
+  <span class="when" id="popWhen"></span>
+</div>
+
+<!-- About overlay + panel (inlined About.html) -->
+<div id="about-panel-overlay" aria-hidden="true"></div>
+<div id="about-panel" role="dialog" aria-modal="true" aria-labelledby="about-heading">
+  <button id="about-close" aria-label="Close About panel">✕</button>
+  <h1 id="about-heading">About this piece</h1>
+  <p>Lanterns drift on still waters and rise across the starspangled sky. Click a lantern to read the note attached to it. Create a new lantern by typing, then press <strong>Release</strong>.</p>
+
+  <h2>Credits</h2>
+  <p><span class="meta">Concept &amp; design:</span> <em>Adrift.site</em></p>
+  <p><span class="meta">Development assistance:</span> ChatGPT (GPT‑5 Thinking)</p>
+  <p><span class="meta">Adaptation by:</span> 34 Gallery Art Advisor Lawrence Lee</p>
+  <p><span class="meta">Ambient audio:</span> Sound Effect by Georg Arnold</p>
+
+  <h2>How it works</h2>
+  <ul>
+    <li>Lanterns drift left→right or rise upward with subtle bobbing.</li>
+    <li>Click a lantern to open its note near where it floats.</li>
+    <li>Press <strong>Inspire</strong> for a prompt, then <strong>Release</strong> to add your lantern.</li>
+    <li>Notes you add are saved locally in your browser (no server).</li>
+    <li>Use <strong>Private mode</strong> to avoid saving new notes.</li>
+  </ul>
+</div>
+
+<!-- Audio -->
+<audio id="bgm" src="https://lawrenceleeart.com/s/mountain-crickets.mp3"></audio>
+
+<div id="errorBanner"></div>
+
+<script>
+(function(){
+  const banner=document.getElementById('errorBanner');
+  function showErr(msg){ banner.textContent='Error: '+msg; banner.style.display='block'; }
+
+  try{
+    document.addEventListener('DOMContentLoaded', function(){
+      const lane=document.getElementById('lane');
+      const textarea=document.getElementById('doubt');
+      const counter=document.getElementById('counter');
+      const releaseBtn=document.getElementById('release');
+      const inspire=document.getElementById('random');
+      const resetBtn=document.getElementById('reset');
+      const privateMode=document.getElementById('privateMode');
+      const toast=document.getElementById('toast');
+
+      const pop=document.getElementById('popover');
+      const popText=document.getElementById('popText');
+      const popWhen=document.getElementById('popWhen');
+      const popClose=document.getElementById('popClose');
+
+      /* Audio / Crickets */
+      const bgm=document.getElementById('bgm');
+      const cricketsCard=document.getElementById('cricketsCard');
+      const cricketsPlay=document.getElementById('cricketsPlay');
+      const cricketsMute=document.getElementById('cricketsMute');
+
+      const cssNum=(name,fallback)=> parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)) || fallback;
+      const fmtNow=()=>new Date().toLocaleString([], {hour:'2-digit', minute:'2-digit', month:'short', day:'numeric'});
+
+      function applyFlicker(img){
+        const dur  = (0.55 + Math.random() * 0.40).toFixed(2) + 's';
+        const delay= (-Math.random() * 0.80).toFixed(2) + 's';
+        const variants=['flickerA','flickerB','flickerC','flickerD'];
+        const name=variants[Math.floor(Math.random()*variants.length)];
+        img.style.animation = name + ' ' + dur + ' ease-in-out infinite';
+        img.style.animationDelay = delay;
+      }
+
+      /* Popover */
+      let popTimer=null;
+      function showPopover(text, targetEl){
+        popText.textContent=text; popWhen.textContent=fmtNow();
+        pop.className='popover';
+        pop.style.display='block'; pop.style.visibility='hidden';
+
+        const r=targetEl.getBoundingClientRect();
+        const pw=pop.offsetWidth, ph=pop.offsetHeight;
+        const vw=innerWidth, vh=innerHeight, gap=10;
+
+        if (vw < 420){
+          const left = Math.max(8, (vw - pw)/2);
+          const top  = Math.max(8, r.bottom + gap);
+          pop.style.left = Math.round(left)+'px';
+          pop.style.top  = Math.round(Math.min(top, vh - ph - 8))+'px';
+          pop.style.visibility='visible';
+          clearTimeout(popTimer); popTimer=setTimeout(()=>{ pop.style.display='none'; }, 5000);
+          return;
+        }
+
+        let left=r.right+gap, top=r.top + (r.height/2) - (ph/2), arrow='arrow-left';
+        if(left + pw > vw - 8){ left = r.left - pw - gap; arrow='arrow-right'; }
+        left = Math.max(8, Math.min(left, vw - pw - 8));
+
+        if(top < 8){ top = r.bottom + gap; arrow='arrow-top'; }
+        else if(top + ph > vh - 8){ top = r.top - ph - gap; arrow='arrow-bottom'; }
+        top = Math.max(8, Math.min(top, vh - ph - 8));
+
+        pop.style.left = Math.round(left)+'px'; pop.style.top = Math.round(top)+'px';
+        pop.classList.add(arrow);
+        pop.style.visibility='visible';
+
+        clearTimeout(popTimer);
+        popTimer=setTimeout(()=>{ pop.style.display='none'; }, 5000);
+      }
+      function hidePopover(){ clearTimeout(popTimer); pop.style.display='none'; }
+      popClose.addEventListener('click', hidePopover);
+      document.addEventListener('keydown', e=>{ if(e.key==='Escape') hidePopover(); });
+      document.addEventListener('click', e=>{ if(!e.target.closest('.popover') && !e.target.closest('.lantern')) hidePopover(); });
+
+      /* Wire initial lanterns */
+      function wireLantern(el){
+        const img = el.querySelector('img');
+        if (img) applyFlicker(img);
+
+        const open=()=>showPopover(el.dataset.text || 'A gentle thought, adrift.', el);
+        el.addEventListener('click', ev=>{ ev.stopPropagation(); open(); }, {passive:true});
+        el.addEventListener('keydown', ev=>{ if(ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); open(); }});
+        if(!el.hasAttribute('tabindex')) el.setAttribute('tabindex','0');
+      }
+      lane.querySelectorAll('.lantern').forEach(wireLantern);
+
+      /* Counter + Release state */
+      function updateRemain(){
+        const len=(textarea.value?.length || 0);
+        const left=Math.max(0, 500 - len);
+
+        counter.textContent= left + ' left';
+        counter.classList.toggle('warn', left<=100 && left>0);
+        counter.classList.toggle('limit', left===0);
+
+        releaseBtn.disabled = (len===0);
+        if(left===0){
+          releaseBtn.textContent='Release (at limit)';
+          releaseBtn.title='You’ve reached 500 characters (still OK to release)';
+          releaseBtn.setAttribute('aria-label','Release (at limit)');
+        }else{
+          releaseBtn.textContent='Release';
+          releaseBtn.title='Create a new lantern with your text and let it drift.';
+          releaseBtn.setAttribute('aria-label','Release: create a new lantern with your text');
+        }
+      }
+      textarea.addEventListener('input', updateRemain);
+      updateRemain();
+      if (textarea) textarea.focus();
+
+      /* Inspire */
+      inspire.addEventListener('click', ()=>{
+        const ideas=[
+          "What if I try and it still isn’t enough?",
+          "How do I start again without her?",
+          "Am I mistaking caution for wisdom?",
+          "Who am I when the work is quiet?",
+          "What if the silence speaks louder than words?",
+          "How do I find strength in the spaces between?",
+          "Am I holding on to hope or fear?",
+          "Who do I become when all masks are removed?",
+          "What if the path forward is through uncertainty?",
+          "How do I heal when time feels frozen?",
+          "Am I learning or merely repeating lessons?",
+          "Who stands beside me when the noise fades?",
+          "What if the darkness reveals the hidden light?",
+          "How do I trust myself after so many doubts?"
+        ];
+        textarea.value=ideas[Math.floor(Math.random()*ideas.length)];
+        updateRemain();
+      });
+
+      /* Spawn lanterns */
+      function spawnLantern(text){
+        const el=document.createElement('div');
+        el.className='lantern drift';
+        el.setAttribute('role','button');
+        el.setAttribute('tabindex','0');
+        el.dataset.text=text;
+
+        const inner=document.createElement('span'); inner.className='inner';
+        const img=document.createElement('img'); img.alt='lantern';
+        img.src='https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/2c7feec3-1d0f-4ad9-9f5e-91bdecb8ef34/lantern1.png?format=1500w';
+        img.onerror=()=>{ img.onerror=null; img.src='https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/4620ab39-1273-4bc1-99d2-018dc7cd8607/lantern1.jpg?format=1500w'; };
+        applyFlicker(img);
+        inner.appendChild(img); el.appendChild(inner);
+
+        if(Math.random()<0.3){
+          el.classList.remove('drift'); el.classList.add('rise');
+        }
+
+        const laneH=lane.clientHeight, laneW=lane.clientWidth;
+        const approxH=cssNum('--lantern-w',48)*2.0;
+        if(el.classList.contains('rise')){
+          const margin=10, maxLeft=Math.max(0, laneW-cssNum('--lantern-w',48)-margin*2);
+          el.style.left=(margin+Math.random()*maxLeft)+'px';
+          el.style.animationDuration=(80+Math.random()*20)+'s';
+          el.style.animationDelay=(-Math.random()*8)+'s';
+        }else{
+          const maxTop=Math.max(0, laneH-approxH);
+          el.style.top=(Math.random()*maxTop)+'px';
+          el.style.animationDuration=(50+Math.random()*25)+'s';
+          el.style.animationDelay=(-Math.random()*12)+'s';
+        }
+
+        wireLantern(el);
+        lane.appendChild(el);
+      }
+
+      /* Persistence for notes */
+      const KEY='adrift_notes_v1';
+      const PMKEY='adrift_private_v1';
+      try{ privateMode.checked = localStorage.getItem(PMKEY)==='1'; }catch(_){}
+      privateMode.addEventListener('change', ()=>{ try{ localStorage.setItem(PMKEY, privateMode.checked?'1':'0'); }catch(_){ } });
+
+      function persist(text){
+        try{
+          const arr=JSON.parse(localStorage.getItem(KEY)||'[]');
+          arr.push({t:text, ts:Date.now()});
+          while(arr.length>50) arr.shift();
+          localStorage.setItem(KEY, JSON.stringify(arr));
+        }catch(_){}
+      }
+      (function restore(){
+        try{ (JSON.parse(localStorage.getItem(KEY)||'[]')).forEach(i=>spawnLantern(i.t)); }catch(_){}
+      })();
+
+      /* Release */
+      releaseBtn.addEventListener('click', ()=>{
+        const text=textarea.value.trim(); if(!text) return;
+        spawnLantern(text);
+        if(!privateMode.checked) persist(text);
+        textarea.value=''; updateRemain();
+        toast.textContent='Your lantern joined the drift.';
+        toast.classList.add('show');
+        setTimeout(()=>toast.classList.remove('show'),1100);
+      });
+
+      /* Reset */
+      const INITIAL_COUNT=5;
+      resetBtn.addEventListener('click', ()=>{
+        const all=[...lane.querySelectorAll('.lantern')];
+        all.slice(INITIAL_COUNT).forEach(el=>el.remove());
+        try{ localStorage.removeItem(KEY); }catch(_){}
+        hidePopover();
+        toast.textContent='Reset complete.';
+        toast.classList.add('show');
+        setTimeout(()=>toast.classList.remove('show'),1000);
+      });
+
+      /* Crickets controls (persistent) */
+      const SKEY='adrift_crickets_v1';
+      let soundState={ wantPlay:false, muted:false };
+      try{
+        const saved=JSON.parse(localStorage.getItem(SKEY)||'{}');
+        if(typeof saved.wantPlay==='boolean') soundState.wantPlay=saved.wantPlay;
+        if(typeof saved.muted==='boolean')    soundState.muted=saved.muted;
+      }catch(_){}
+      function saveSound(){ try{ localStorage.setItem(SKEY, JSON.stringify(soundState)); }catch(_){ } }
+      function applyMuteUI(){
+        cricketsMute.textContent=soundState.muted?'Unmute':'Mute';
+        cricketsMute.setAttribute('aria-pressed', String(soundState.muted));
+      }
+      function applyPlayUI(){
+        cricketsPlay.textContent=soundState.wantPlay?'Pause':'Play';
+        cricketsPlay.setAttribute('aria-pressed', String(soundState.wantPlay));
+      }
+      bgm.muted=soundState.muted; applyMuteUI(); applyPlayUI();
+
+      function tryPlay(){
+        return bgm.play().then(()=>{
+          soundState.wantPlay=true; applyPlayUI(); saveSound();
+        }).catch(()=>{});
+      }
+      function tryPause(){
+        bgm.pause(); soundState.wantPlay=false; applyPlayUI(); saveSound();
+      }
+      function primeAudio(){ if(soundState.wantPlay) tryPlay(); }
+
+      cricketsPlay.addEventListener('click', ()=>{
+        if(bgm.paused) tryPlay(); else tryPause();
+      });
+      cricketsMute.addEventListener('click', ()=>{
+        soundState.muted=!soundState.muted;
+        bgm.muted=soundState.muted;
+        applyMuteUI(); saveSound();
+      });
+
+      bgm.addEventListener('error', ()=>{
+        [cricketsPlay, cricketsMute].forEach(b=>{
+          b.disabled=true;
+          b.title='Audio file not found';
+        });
+        const note=document.createElement('span');
+        note.className='meta';
+        note.textContent=' (audio not found)';
+        cricketsCard.appendChild(note);
+      });
+
+      document.addEventListener('click', primeAudio, {once:false});
+
+      /* Resize guard */
+      window.addEventListener('resize', ()=>{
+        const approxH=cssNum('--lantern-w',48)*2.0;
+        const maxTop=Math.max(0, lane.clientHeight-approxH);
+        [...lane.querySelectorAll('.lantern:not(.rise)')].forEach(el=>{
+          const top=parseFloat(el.style.top)||0;
+          el.style.top=Math.min(top, maxTop)+'px';
+        });
+        hidePopover();
+      }, {passive:true});
+
+      /* About panel wiring */
+      const aboutLink  = document.getElementById('about-link');
+      const aboutPanel = document.getElementById('about-panel');
+      const aboutOverlay = document.getElementById('about-panel-overlay');
+      const aboutClose = document.getElementById('about-close');
+
+      function openAbout(e){
+        if(e) e.preventDefault();
+        aboutPanel.style.display='block';
+        aboutOverlay.style.display='block';
+        aboutPanel.setAttribute('aria-hidden','false');
+        aboutOverlay.setAttribute('aria-hidden','false');
+      }
+      function closeAbout(){
+        aboutPanel.style.display='none';
+        aboutOverlay.style.display='none';
+        aboutPanel.setAttribute('aria-hidden','true');
+        aboutOverlay.setAttribute('aria-hidden','true');
+      }
+      if(aboutLink){
+        aboutLink.addEventListener('click', openAbout);
+      }
+      if(aboutClose){
+        aboutClose.addEventListener('click', closeAbout);
+      }
+      if(aboutOverlay){
+        aboutOverlay.addEventListener('click', closeAbout);
+      }
+      document.addEventListener('keydown', e=>{
+        if(e.key==='Escape') closeAbout();
+      });
+    });
+  }catch(err){ showErr(err.message||String(err)); }
+})();
+</script>
+
+</body>
+</html>
