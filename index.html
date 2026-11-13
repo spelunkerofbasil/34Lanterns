@@ -1,760 +1,1096 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>34 Lanterns</title>
-  <style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>34 Lanterns</title>
+<meta name="description" content="34 Lanterns — an interactive piece from 34 Gallery. A quiet place to set something down: release a doubt, wish, promise or fear as a lantern, and read the lanterns already drifting.">
+<style>
   :root{
-    --ink:#e8f4ff; --muted:#b7c9d6;
-    --lantern-w:48px;
-    --drift-slow:60s;
-    --rise-slow:80s;
-    --gap:12px;
-    --lantern-dim: 0.68;
+    --ink:#eef4fb;
+    --muted:#a9bccb;
+    --warm:#ffcf8a;
+    --panel:rgba(10,22,34,.72);
+    --line:rgba(150,190,220,.22);
+    --focus:#ffd9a0;
   }
   *{box-sizing:border-box}
-  html,body{margin:0;height:100%}
+  html,body{margin:0;height:100%;background:#02050b}
   body{
-    font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
-    color:var(--ink); background:#000; overflow:hidden; position:relative;
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    color:var(--ink); overflow:hidden; -webkit-font-smoothing:antialiased;
   }
+  button,textarea,input{font:inherit;color:inherit}
+  .sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 
-  .hud {
-    position: fixed;
-    left: 16px;
-    right: 16px;
-    bottom: 16px;
-    z-index: 3;
-    display: flex;
-    gap: var(--gap);
-    flex-wrap: wrap;
-    align-items: flex-start;
-    padding-bottom: max(0px, env(safe-area-inset-bottom));
-  }
+  #scene{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:manipulation}
+  #scene.pointer{cursor:pointer}
 
-  /* Stars */
-  #sky{
-    position:fixed; inset:0; z-index:0; width:100%; height:100%;
-    object-fit:cover; object-position:center; display:block;
-    filter:brightness(1.1) contrast(1.08);
-  }
-
-  /* Header (brand only) */
+  /* Title */
   header{
-    position:fixed; top:16px; left:16px; right:16px; z-index:3;
-    display:flex; gap:12px; align-items:center; color:#fff;
+    position:fixed; top:max(18px,env(safe-area-inset-top)); left:0; right:0;
+    text-align:center; pointer-events:none; z-index:2;
+    transition:opacity .8s ease;
   }
-  .brand{ letter-spacing:.35rem; text-transform:lowercase; font-weight:700; }
+  header h1{
+    margin:0; font-weight:400; font-size:clamp(22px,3.2vw,34px);
+    letter-spacing:.32em; text-indent:.32em; text-transform:lowercase;
+    text-shadow:0 0 18px rgba(255,200,130,.25);
+  }
+  header p{margin:.35em 0 0; color:var(--muted); font-style:italic; font-size:clamp(13px,1.4vw,16px); letter-spacing:.04em}
 
-  /* Lantern lane */
-  .lane{
-    position:fixed; left:0; right:0; top:96px; bottom:196px;
-    z-index:1; min-height:200px;
-  }
-
-  /* Lanterns + motion */
-  .lantern{
-    position:absolute; width:var(--lantern-w);
-    filter:drop-shadow(0 2px 2px rgba(0,0,0,.35));
-    cursor:pointer;
-  }
-  .lantern .inner{
-    filter: brightness(var(--lantern-dim));
-    transition:filter .18s ease;
-    display:block;
-    animation:bob 3.8s ease-in-out infinite;
-  }
-  .lantern:hover .inner,
-  .lantern:focus-visible .inner{
-    filter: brightness(calc(var(--lantern-dim) + 0.08));
-  }
-  .lantern img{
-    width:100%; height:auto; display:block; will-change: filter;
+  /* Logo */
+  .logo{
+    position:fixed; right:max(16px,env(safe-area-inset-right)); top:max(16px,env(safe-area-inset-top));
+    width:54px; height:auto; z-index:2; mix-blend-mode:screen; opacity:.8;
   }
 
-  @keyframes drift { from{ transform:translateX(-120px) } to{ transform:translateX(calc(100vw + 120px)) } }
-  @keyframes rise  { from{ transform:translateY(140px) } to{ transform:translateY(-120vh) } }
-  @keyframes bob   { 0%{transform:translateY(0)} 50%{transform:translateY(4px)} 100%{transform:translateY(0)} }
+  /* Control dock */
+  .dock{
+    position:fixed; z-index:3; left:50%; transform:translateX(-50%);
+    bottom:max(16px,env(safe-area-inset-bottom));
+    width:min(640px, calc(100% - 24px));
+    background:var(--panel); border:1px solid var(--line); border-radius:18px;
+    backdrop-filter:blur(10px) saturate(120%); -webkit-backdrop-filter:blur(10px) saturate(120%);
+    box-shadow:0 18px 50px rgba(0,0,0,.45);
+    padding:10px 10px 8px;
+    transition:opacity .6s ease, transform .6s ease;
+  }
+  body.idle .dock:not(:focus-within):not(:hover){opacity:.35}
+  body.idle header{opacity:.35}
+  .compose{display:flex; gap:8px; align-items:flex-end}
+  .field{position:relative; flex:1}
+  textarea{
+    display:block; width:100%; resize:none; min-height:44px; max-height:140px;
+    background:rgba(255,255,255,.04); border:1px solid var(--line); border-radius:12px;
+    padding:11px 12px; line-height:1.4; font-size:16px; outline:none;
+    transition:border-color .2s, background .2s;
+  }
+  textarea::placeholder{color:#8ea3b4; font-style:italic}
+  textarea:focus{border-color:rgba(255,207,138,.55); background:rgba(255,255,255,.06)}
+  .counter{
+    position:absolute; right:10px; bottom:-18px; font-size:12px; color:var(--muted);
+    font-family:system-ui,sans-serif; opacity:0; transition:opacity .2s;
+  }
+  .counter.show{opacity:1}
+  .counter.limit{color:#ffb4a8}
 
-  .lantern.drift{ animation:drift var(--drift-slow) linear infinite }
-  .lantern.rise { animation:rise  var(--rise-slow)  linear infinite }
+  .release{
+    flex:none; height:44px; padding:0 18px; border-radius:12px; cursor:pointer;
+    border:1px solid rgba(255,207,138,.6);
+    background:linear-gradient(180deg,#ffd796,#f0a95a); color:#2a1606;
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif; font-weight:650; letter-spacing:.02em;
+    box-shadow:0 0 22px rgba(255,180,90,.35);
+    transition:transform .12s, box-shadow .2s, opacity .2s, filter .2s;
+  }
+  .release:hover:not(:disabled){box-shadow:0 0 30px rgba(255,180,90,.55)}
+  .release:active:not(:disabled){transform:translateY(1px)}
+  .release:disabled{opacity:.4; cursor:default; box-shadow:none; filter:saturate(.6)}
 
-  .lantern:focus-visible{
-    outline:2px solid #9ad1ff; outline-offset:2px; border-radius:8px;
+  .tools{
+    display:flex; align-items:center; gap:4px; margin-top:8px; flex-wrap:wrap;
+    font-family:system-ui,-apple-system,"Segoe UI",sans-serif; font-size:13px; color:var(--muted);
   }
+  .tool{
+    display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 10px;
+    border-radius:999px; border:1px solid transparent; background:transparent; cursor:pointer;
+    color:var(--muted); transition:background .2s,color .2s,border-color .2s;
+  }
+  .tool:hover{background:rgba(255,255,255,.06); color:var(--ink)}
+  .tool[aria-pressed="true"]{color:var(--warm); border-color:rgba(255,207,138,.35)}
+  .tool svg{width:16px;height:16px;flex:none}
+  .spacer{flex:1}
+  .check{display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 8px; cursor:pointer; border-radius:999px}
+  .check:hover{color:var(--ink)}
+  .check input{accent-color:#f0a95a; width:15px; height:15px; margin:0}
+  .hint{padding:0 8px}
 
-  /* Popover */
-  .popover{
-    position:fixed; z-index:4; max-width:min(60ch,72vw);
-    background:#0f2434; color:var(--ink);
-    border:1px solid #38556b; border-radius:12px;
-    padding:14px 48px 12px 14px; box-shadow:0 24px 48px rgba(0,0,0,.45);
-    display:none; line-height:1.45; word-break:break-word;
-  }
-  .popover .when{
-    display:block; font-size:.85rem; color:var(--muted); margin-top:6px;
-  }
-  .popover .close{
-    position:absolute; top:8px; right:8px; width:28px; height:28px;
-    display:grid; place-items:center;
-    font-size:16px; line-height:1; cursor:pointer; color:#cfe6f6;
-    border-radius:999px; background:#143047; border:1px solid #38556b;
-  }
-  .popover .close:hover{ background:#163a58 }
-  .popover::after{
-    content:""; position:absolute; width:0; height:0; border:8px solid transparent;
-  }
-  .popover.arrow-left::after{
-    left:-1px; top:14px; transform:translateX(-100%); border-right-color:#0f2434;
-  }
-  .popover.arrow-right::after{
-    right:-1px; top:14px; transform:translateX(100%); border-left-color:#0f2434;
-  }
-  .popover.arrow-top::after{
-    top:-1px; left:16px; transform:translateY(-100%); border-bottom-color:#0f2434;
-  }
-  .popover.arrow-bottom::after{
-    bottom:-1px; left:16px; transform:translateY(100%); border-top-color:#0f2434;
-  }
+  :focus-visible{outline:2px solid var(--focus); outline-offset:2px}
 
-  /* HUD */
-  .card{
-    background:rgba(25,50,70,.8); border:1px solid #38556b;
-    border-radius:14px; padding:12px 14px; color:var(--ink);
+  /* Note card */
+  .note{
+    position:fixed; z-index:4; width:min(340px, calc(100vw - 24px));
+    background:rgba(12,24,36,.92); border:1px solid rgba(255,207,138,.28); border-radius:14px;
+    padding:16px 40px 12px 16px; box-shadow:0 20px 50px rgba(0,0,0,.55), 0 0 40px rgba(255,170,80,.08);
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+    opacity:0; transform:translateY(6px) scale(.98); pointer-events:none;
+    transition:opacity .25s ease, transform .25s ease;
   }
-  .grow{flex:1 1 320px}
-  .meta{font-size:.9rem;color:var(--muted)}
-  .topline{
-    display:flex; align-items:baseline; justify-content:space-between;
-    gap:12px; flex-wrap:wrap;
+  .note.open{opacity:1; transform:none; pointer-events:auto}
+  .note .text{margin:0; font-size:17px; line-height:1.5; white-space:pre-wrap; word-wrap:break-word; max-height:40vh; overflow:auto}
+  .note .foot{display:flex; justify-content:space-between; align-items:center; margin-top:10px; gap:10px;
+    font-family:system-ui,sans-serif; font-size:12px; color:var(--muted)}
+  .note .report{background:none;border:none;color:var(--muted);cursor:pointer;padding:2px 0;text-decoration:underline;text-underline-offset:2px;font-size:12px}
+  .note .report:hover{color:var(--ink)}
+  .x{
+    position:absolute; top:8px; right:8px; width:28px; height:28px; border-radius:999px;
+    display:grid; place-items:center; cursor:pointer; background:transparent;
+    border:1px solid var(--line); color:var(--muted); font-size:14px; line-height:1;
   }
-  .topline .hint.meta{
-    white-space:nowrap; opacity:.95;
-  }
-
-  .hud-logo{
-    position: absolute;
-    right: 16px;
-    bottom: 12px;
-    max-width: 60px;
-    height: auto;
-    z-index: 10;
-  }
-
- .card{
-  background:rgba(25,50,70,.8);
-  border:1px solid #38556b;
-  border-radius:14px;
-  padding:8px 10px;      /* was 12px 14px */
-  color:var(--ink);
-}
-
-textarea{
-  width:100%;
-  min-height:56px;       /* was 64px */
-  max-height:100px;      /* optional clamp */
-  background:transparent;
-  border:1px dashed #476e88;
-  border-radius:10px;
-  color:var(--ink);
-  padding:6px 8px;       /* was 10px */
-  resize:vertical;
-  font-size:15px;        /* was 16px */
-}
-
-.row{
-  display:flex;
-  gap:8px;               /* was 10px */
-  align-items:center;
-  justify-content:space-between;
-  margin-top:4px;        /* was 8px */
-}
-
-.btn,
-.pill button,
-.pill a.linkbtn{
-  padding:8px 10px;      /* was 10px 14px (or 12px 14px on mobile) */
-  font-size:15px;        /* a bit smaller */
-}
-  .btn.secondary{
-    background:transparent; color:var(--ink); border:1px solid #476e88;
-  }
-  .btn:active{transform:translateY(1px)}
-  .btn[disabled]{ opacity:.55; cursor:not-allowed; filter:grayscale(20%) }
-
-  /* Pills + link buttons */
-  .pill{
-    display:flex; gap:8px; align-items:center;
-    border:1px solid #38556b; border-radius:999px;
-    padding:8px 10px; background:rgba(25,50,70,.6);
-    backdrop-filter:blur(4px); color:var(--ink);
-  }
-  .pill button, .pill a.linkbtn{
-    cursor:pointer; border:1px solid #476e88; background:#e3f3ff; color:#0b2231;
-    font-weight:700; border-radius:10px; padding:8px 12px; font-size:16px;
-    text-decoration:none; display:inline-block;
-  }
-  .pill .mute{
-    background:transparent; color:var(--ink); border-color:#476e88;
-  }
-  .pill button:disabled{ opacity:.5; cursor:not-allowed }
+  .x:hover{color:var(--ink); background:rgba(255,255,255,.06)}
 
   /* Toast */
   .toast{
-    position:fixed; left:50%; transform:translateX(-50%);
-    bottom:110px; background:rgba(25,50,70,.9);
-    border:1px solid #38556b; border-radius:10px;
-    padding:8px 12px; color:#d2e5f3; font-size:.95rem;
-    display:none; z-index:4;
+    position:fixed; left:50%; z-index:4; transform:translate(-50%,8px);
+    bottom:calc(max(16px,env(safe-area-inset-bottom)) + 130px);
+    background:rgba(12,24,36,.9); border:1px solid var(--line); border-radius:999px;
+    padding:8px 16px; font-size:15px; font-style:italic; color:#e8dcc8;
+    opacity:0; transition:opacity .4s, transform .4s; pointer-events:none;
   }
-  .toast.show{display:block}
+  .toast.show{opacity:1; transform:translate(-50%,0)}
 
-  /* Counter badge */
-  .inputwrap{ position:relative; display:block }
-  .inputwrap textarea{ padding-right:72px }
-  .counter{
-    position:absolute; right:12px; bottom:10px; font-size:.9rem; color:var(--muted);
-    background:rgba(20,40,60,.65); border:1px solid #476e88;
-    border-radius:999px; padding:2px 10px; line-height:1.6; pointer-events:none;
+  /* About */
+  dialog{
+    width:min(620px, calc(100vw - 24px)); max-height:min(80vh, 760px);
+    border:1px solid var(--line); border-radius:16px; padding:22px 24px 18px;
+    background:#0b1724; color:var(--ink); box-shadow:0 30px 80px rgba(0,0,0,.6);
   }
-  .counter.warn{  color:#ffd972; border-color:#c9a04a }
-  .counter.limit{ color:#ffb3b3; border-color:#cc6b6b }
+  dialog::backdrop{background:rgba(0,0,0,.6); backdrop-filter:blur(2px)}
+  dialog h2{margin:0 0 .5em; font-weight:400; letter-spacing:.06em; font-size:24px}
+  dialog h3{margin:1.4em 0 .4em; font-weight:400; font-size:17px; color:var(--warm); letter-spacing:.04em}
+  dialog p, dialog li{line-height:1.55; font-size:15.5px}
+  dialog ul{padding-left:1.2em; margin:.3em 0}
+  dialog .credits{display:grid; grid-template-columns:auto 1fr; gap:4px 14px; font-size:15px}
+  dialog .credits dt{color:var(--muted); font-family:system-ui,sans-serif; font-size:13px; padding-top:2px}
+  dialog .credits dd{margin:0}
+  dialog .danger{
+    margin-top:6px; background:transparent; border:1px solid rgba(255,160,140,.4); color:#ffc4b8;
+    border-radius:10px; padding:7px 12px; cursor:pointer; font-family:system-ui,sans-serif; font-size:13px;
+  }
+  dialog .danger:hover{background:rgba(255,140,120,.08)}
+  dialog .meta{color:var(--muted); font-family:system-ui,sans-serif; font-size:13px}
 
-  /* Responsive */
-  @media (max-width:700px){
-    :root{ --lantern-w:56px; --gap:10px }
-    header{ top:12px; left:12px; right:12px }
-    .lane{ top:80px; bottom:220px }
-    textarea{ min-height:84px; font-size:17px }
-    .btn, .pill button, .pill a.linkbtn{ padding:12px 14px; font-size:17px }
-    .topline .hint.meta{ white-space:normal }
+  /* Welcome (first visit) */
+  .welcome{
+    position:fixed; inset:0; z-index:6; display:grid; place-items:center; padding:20px;
+    background:radial-gradient(ellipse at 50% 40%, rgba(2,5,11,.35), rgba(2,5,11,.82));
+    opacity:0; transition:opacity 1.2s ease;
   }
-  @media (max-width:420px){
-    :root{ --lantern-w:64px; --gap:8px }
-    .lane{ top:76px; bottom:236px }
-    .brand{ letter-spacing:.2rem }
-    .hud{ left:12px; right:12px; bottom:12px }
-    .card{ padding:10px 12px }
-    .popover{ max-width:92vw }
+  .welcome.show{opacity:1}
+  .welcome.leaving{opacity:0; transition:opacity .9s ease}
+  .welcome[hidden]{display:none}
+  .welcome .card{
+    width:min(520px,100%); max-height:calc(100vh - 40px); overflow:auto;
+    text-align:center; padding:34px 30px 26px;
+    background:rgba(10,20,32,.78); border:1px solid rgba(255,207,138,.22); border-radius:20px;
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+    box-shadow:0 30px 80px rgba(0,0,0,.6), 0 0 60px rgba(255,170,80,.06);
+    transform:translateY(10px); transition:transform 1.2s ease;
   }
-  @media (max-height:640px){
-    .lane{ bottom:210px }
-    textarea{ min-height:72px }
-  }
+  .welcome.show .card{transform:none}
+  .welcome h2{margin:0; font-weight:400; font-size:clamp(24px,5vw,32px); letter-spacing:.3em; text-indent:.3em; text-transform:lowercase}
+  .welcome .lede{margin:.5em 0 1.1em; font-style:italic; color:var(--warm); font-size:18px}
+  .welcome p{line-height:1.6; font-size:16px; margin:0 0 1em}
+  .welcome h3{margin:1.3em 0 .6em; font-family:system-ui,sans-serif; font-weight:600; font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted)}
+  .welcome ol{list-style:none; padding:0; margin:0 auto 1.4em; text-align:left; width:fit-content; max-width:100%}
+  .welcome li{display:flex; gap:12px; align-items:baseline; margin:.45em 0; line-height:1.45; font-size:16px}
+  .welcome li b{flex:none; width:22px; height:22px; border-radius:999px; display:inline-grid; place-items:center;
+    font:600 12px system-ui,sans-serif; color:#2a1606; background:linear-gradient(180deg,#ffd796,#f0a95a); transform:translateY(-1px)}
+  .welcome .begin{height:46px; padding:0 30px; font-size:16px}
+  .welcome .quiet{display:block; margin:12px auto 0; background:none; border:none; cursor:pointer;
+    color:var(--muted); font:13px system-ui,sans-serif; text-decoration:underline; text-underline-offset:3px}
+  .welcome .quiet:hover{color:var(--ink)}
+  .welcome .fine{margin:16px 0 0; font:12px system-ui,sans-serif; color:#8195a6}
+  dialog .linkish{background:none;border:none;padding:0;color:var(--warm);cursor:pointer;text-decoration:underline;text-underline-offset:3px;font:inherit}
 
-  /* Flicker keyframes */
-  @keyframes flickerA {
-    0%   { filter: brightness(0.78) saturate(0.98); }
-    12%  { filter: brightness(1.10) saturate(1.04); }
-    25%  { filter: brightness(0.72) saturate(0.94); }
-    47%  { filter: brightness(1.06) saturate(1.03); }
-    63%  { filter: brightness(0.74) saturate(0.95); }
-    78%  { filter: brightness(1.08) saturate(1.04); }
-    100% { filter: brightness(0.79) saturate(0.98); }
+  @media (max-width:520px){
+    .welcome .card{padding:26px 20px 20px}
+    .logo{width:42px}
+    header{text-align:left; left:16px; right:70px}
+    header h1{text-indent:0; letter-spacing:.22em}
+    .tools .label-sm{display:none}
+    .hint{display:none}
+    .tools{flex-wrap:nowrap; gap:0}
+    .tool{padding:0 7px}
+    .check{padding:0 6px}
+    .toast{bottom:calc(max(16px,env(safe-area-inset-bottom)) + 150px); white-space:nowrap; font-size:14px}
   }
-  @keyframes flickerB {
-    0%   { filter: brightness(0.76) saturate(0.98); }
-    8%   { filter: brightness(1.12) saturate(1.05); }
-    19%  { filter: brightness(0.70) saturate(0.93); }
-    41%  { filter: brightness(1.05) saturate(1.03); }
-    66%  { filter: brightness(0.74) saturate(0.95); }
-    89%  { filter: brightness(1.09) saturate(1.04); }
-    100% { filter: brightness(0.76) saturate(0.98); }
-  }
-  @keyframes flickerC {
-    0%   { filter: brightness(0.77) saturate(0.98); }
-    10%  { filter: brightness(1.08) saturate(1.04); }
-    32%  { filter: brightness(0.71) saturate(0.93); }
-    50%  { filter: brightness(1.07) saturate(1.04); }
-    70%  { filter: brightness(0.73) saturate(0.95); }
-    100% { filter: brightness(0.77) saturate(0.98); }
-  }
-  @keyframes flickerD {
-    0%   { filter: brightness(0.78) saturate(0.98); }
-    14%  { filter: brightness(1.12) saturate(1.05); }
-    22%  { filter: brightness(0.70) saturate(0.92); }
-    58%  { filter: brightness(1.05) saturate(1.03); }
-    83%  { filter: brightness(0.73) saturate(0.94); }
-    100% { filter: brightness(0.78) saturate(0.98); }
-  }
-
-  /* About panel */
-  #about-panel-overlay{
-    position:fixed; inset:0; background:rgba(0,0,0,.6);
-    z-index:5; display:none;
-  }
-  #about-panel{
-    position:fixed; inset:auto 10% 10% 10%;
-    top:10%;
-    max-width:700px; margin:0 auto;
-    background:#0f2434; color:var(--ink);
-    border-radius:12px; border:1px solid #38556b;
-    padding:18px 20px 16px;
-    z-index:6; display:none; overflow:auto;
-    box-shadow:0 24px 48px rgba(0,0,0,.6);
-  }
-  #about-panel h1,
-  #about-panel h2{
-    margin-top:0;
-  }
-  #about-close{
-    position:absolute; top:10px; right:10px;
-    width:28px; height:28px; border-radius:999px;
-    border:1px solid #38556b; background:#143047;
-    color:#cfe6f6; cursor:pointer;
-    display:grid; place-items:center;
-  }
-  #about-close:hover{ background:#163a58 }
-  #about-panel .meta{color:var(--muted);}
 </style>
 </head>
 <body>
-  <img id="sky" alt="" aria-hidden="true" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%221200%22%20height%3D%22675%22%20viewBox%3D%220%200%201200%20675%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23000%22/%3E%3Ccircle%20cx%3D%221083%22%20cy%3D%22365%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%2261%22%20cy%3D%22398%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22868%22%20cy%3D%22313%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%221196%22%20cy%3D%22523%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22561%22%20cy%3D%22355%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%221072%22%20cy%3D%2288%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22522%22%20cy%3D%22565%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22341%22%20cy%3D%22602%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22781%22%20cy%3D%22321%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22927%22%20cy%3D%22548%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22268%22%20cy%3D%22586%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22868%22%20cy%3D%22241%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%221189%22%20cy%3D%2276%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22849%22%20cy%3D%22119%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22357%22%20cy%3D%22415%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22184%22%20cy%3D%22532%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22945%22%20cy%3D%22371%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22563%22%20cy%3D%22143%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22606%22%20cy%3D%22318%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%221058%22%20cy%3D%22106%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22465%22%20cy%3D%22417%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22725%22%20cy%3D%22624%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22146%22%20cy%3D%2250%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22657%22%20cy%3D%22177%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22700%22%20cy%3D%22493%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%224%22%20cy%3D%22629%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%221090%22%20cy%3D%2259%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22241%22%20cy%3D%22513%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%221121%22%20cy%3D%22469%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22315%22%20cy%3D%22479%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22771%22%20cy%3D%22151%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22667%22%20cy%3D%22608%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22544%22%20cy%3D%22462%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22833%22%20cy%3D%22473%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22346%22%20cy%3D%22148%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22820%22%20cy%3D%22532%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%221059%22%20cy%3D%22464%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22840%22%20cy%3D%22593%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22545%22%20cy%3D%22567%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22308%22%20cy%3D%22519%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22574%22%20cy%3D%225%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22993%22%20cy%3D%22510%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%221091%22%20cy%3D%22532%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22700%22%20cy%3D%22349%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%2272%22%20cy%3D%22329%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22783%22%20cy%3D%22516%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%2217%22%20cy%3D%2264%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22809%22%20cy%3D%2298%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%2273%22%20cy%3D%22171%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22197%22%20cy%3D%22652%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22380%22%20cy%3D%2245%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22833%22%20cy%3D%22355%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22224%22%20cy%3D%22470%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22459%22%20cy%3D%22202%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22452%22%20cy%3D%2253%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22728%22%20cy%3D%22239%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22626%22%20cy%3D%22379%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%221151%22%20cy%3D%22310%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%221033%22%20cy%3D%22633%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22958%22%20cy%3D%22240%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22316%22%20cy%3D%22238%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22976%22%20cy%3D%22430%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%221149%22%20cy%3D%22485%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22272%22%20cy%3D%2265%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22558%22%20cy%3D%22600%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22288%22%20cy%3D%22257%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22752%22%20cy%3D%22499%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%221051%22%20cy%3D%2295%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22440%22%20cy%3D%22594%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%221181%22%20cy%3D%22670%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22621%22%20cy%3D%225%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22619%22%20cy%3D%22282%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22418%22%20cy%3D%22492%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%221092%22%20cy%3D%22209%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22288%22%20cy%3D%22408%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22607%22%20cy%3D%22215%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22800%22%20cy%3D%22305%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22150%22%20cy%3D%22307%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%221081%22%20cy%3D%22501%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%2267%22%20cy%3D%22362%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22180%22%20cy%3D%2216%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%221117%22%20cy%3D%2221%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22921%22%20cy%3D%22417%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22165%22%20cy%3D%22656%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%221094%22%20cy%3D%22642%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22182%22%20cy%3D%22475%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%221036%22%20cy%3D%22190%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22454%22%20cy%3D%22434%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22460%22%20cy%3D%2249%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%221075%22%20cy%3D%22149%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%221016%22%20cy%3D%22346%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%222%22%20cy%3D%22105%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22822%22%20cy%3D%22338%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22677%22%20cy%3D%22584%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%2280%22%20cy%3D%22364%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%221097%22%20cy%3D%22666%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22808%22%20cy%3D%22487%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22592%22%20cy%3D%22212%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22727%22%20cy%3D%22640%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22832%22%20cy%3D%22397%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22666%22%20cy%3D%22504%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22518%22%20cy%3D%22165%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22192%22%20cy%3D%22354%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22366%22%20cy%3D%22140%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22302%22%20cy%3D%22629%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22938%22%20cy%3D%22642%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22683%22%20cy%3D%22343%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22593%22%20cy%3D%22414%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22454%22%20cy%3D%22483%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22799%22%20cy%3D%22273%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22740%22%20cy%3D%22161%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%2261%22%20cy%3D%22143%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22473%22%20cy%3D%22627%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22116%22%20cy%3D%22526%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22677%22%20cy%3D%22660%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22532%22%20cy%3D%223%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22873%22%20cy%3D%22435%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22687%22%20cy%3D%22507%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22716%22%20cy%3D%22325%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22244%22%20cy%3D%22601%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22146%22%20cy%3D%2252%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%221093%22%20cy%3D%22317%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%221100%22%20cy%3D%22272%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22842%22%20cy%3D%2269%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22328%22%20cy%3D%22463%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%221091%22%20cy%3D%22205%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22889%22%20cy%3D%22534%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22967%22%20cy%3D%2257%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%2229%22%20cy%3D%22444%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%229%22%20cy%3D%22571%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22737%22%20cy%3D%2277%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22889%22%20cy%3D%22239%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%2214%22%20cy%3D%22546%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22879%22%20cy%3D%22626%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22626%22%20cy%3D%22295%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22128%22%20cy%3D%22319%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%221102%22%20cy%3D%22540%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22763%22%20cy%3D%22111%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22127%22%20cy%3D%22128%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22302%22%20cy%3D%22328%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%221116%22%20cy%3D%22324%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22993%22%20cy%3D%22529%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22580%22%20cy%3D%22417%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22997%22%20cy%3D%22195%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22477%22%20cy%3D%22405%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22927%22%20cy%3D%22149%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22452%22%20cy%3D%22326%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22627%22%20cy%3D%2274%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22856%22%20cy%3D%22509%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22210%22%20cy%3D%22222%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%221089%22%20cy%3D%22244%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22457%22%20cy%3D%22375%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22730%22%20cy%3D%22645%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22266%22%20cy%3D%22463%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%221177%22%20cy%3D%22171%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22541%22%20cy%3D%22298%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22316%22%20cy%3D%2285%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%221037%22%20cy%3D%2278%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%22693%22%20cy%3D%22324%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%221168%22%20cy%3D%22620%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22176%22%20cy%3D%22466%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%221017%22%20cy%3D%22488%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%221130%22%20cy%3D%22574%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22839%22%20cy%3D%22190%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%221001%22%20cy%3D%22223%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%22192%22%20cy%3D%2284%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22895%22%20cy%3D%22222%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22360%22%20cy%3D%22672%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%2283%22%20cy%3D%2225%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22414%22%20cy%3D%22290%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.5%22/%3E%3Ccircle%20cx%3D%22835%22%20cy%3D%22411%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%2292%22%20cy%3D%22128%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22822%22%20cy%3D%22125%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%221.0%22/%3E%3Ccircle%20cx%3D%221195%22%20cy%3D%22578%22%20r%3D%221.2%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22201%22%20cy%3D%22132%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22946%22%20cy%3D%22483%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%221128%22%20cy%3D%22343%22%20r%3D%221.0%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3Ccircle%20cx%3D%22522%22%20cy%3D%2293%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.35%22/%3E%3Ccircle%20cx%3D%22562%22%20cy%3D%22381%22%20r%3D%220.6%22%20fill%3D%22white%22%20opacity%3D%220.65%22/%3E%3Ccircle%20cx%3D%221005%22%20cy%3D%22483%22%20r%3D%220.8%22%20fill%3D%22white%22%20opacity%3D%220.8%22/%3E%3C/svg%3E">
-  
 
-
+<canvas id="scene" aria-hidden="true"></canvas>
 
 <header>
-  <div class="brand">34 Lanterns</div>
+  <h1>34 Lanterns</h1>
+  <p>A quiet place to set something down.</p>
 </header>
 
-<!-- Initial lanterns -->
-<div id="lane" class="lane" aria-hidden="false">
-  <div class="lantern drift" data-text="A gentle thought, adrift." style="top:12px; animation-duration:60s; animation-delay:-12s;">
-    <span class="inner">
-      <img src="https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/2c7feec3-1d0f-4ad9-9f5e-91bdecb8ef34/lantern1.png?format=1500w" alt="lantern" onerror="this.onerror=null; this.src='https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/4620ab39-1273-4bc1-99d2-018dc7cd8607/lantern1.jpg?format=1500w';">
-    </span>
-  </div>
-  <div class="lantern drift" data-text="The tide carries this quietly." style="top:82px; animation-duration:70s; animation-delay:-8s;">
-    <span class="inner">
-      <img src="https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/2c7feec3-1d0f-4ad9-9f5e-91bdecb8ef34/lantern1.png?format=1500w" alt="lantern" onerror="this.onerror=null; this.src='https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/4620ab39-1273-4bc1-99d2-018dc7cd8607/lantern1.jpg?format=1500w';">
-    </span>
-  </div>
-  <div class="lantern drift" data-text="Letting go, for tonight." style="top:152px; animation-duration:65s; animation-delay:-20s;">
-    <span class="inner">
-      <img src="https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/2c7feec3-1d0f-4ad9-9f5e-91bdecb8ef34/lantern1.png?format=1500w" alt="lantern" onerror="this.onerror=null; this.src='https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/4620ab39-1273-4bc1-99d2-018dc7cd8607/lantern1.jpg?format=1500w';">
-    </span>
-  </div>
-  <div class="lantern rise" data-text="Upward into the dark, softly." style="left:18%; animation-duration:80s; animation-delay:-9s;">
-    <span class="inner">
-      <img src="https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/2c7feec3-1d0f-4ad9-9f5e-91bdecb8ef34/lantern1.png?format=1500w" alt="lantern" onerror="this.onerror=null; this.src='https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/4620ab39-1273-4bc1-99d2-018dc7cd8607/lantern1.jpg?format=1500w';">
-    </span>
-  </div>
-  <div class="lantern rise" data-text="Another small light, rising." style="left:64%; animation-duration:90s; animation-delay:-22s;">
-    <span class="inner">
-      <img src="https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/2c7feec3-1d0f-4ad9-9f5e-91bdecb8ef34/lantern1.png?format=1500w" alt="lantern" onerror="this.onerror=null; this.src='https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/4620ab39-1273-4bc1-99d2-018dc7cd8607/lantern1.jpg?format=1500w';">
-    </span>
+<div class="welcome" id="welcome" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle" hidden>
+  <div class="card">
+    <h2 id="welcomeTitle">34 Lanterns</h2>
+    <p class="lede">A quiet place to set something down.</p>
+    <p>Write what you’ve been carrying: a doubt, a wish, a promise you’ve made, a fear you’d rather not hold alone, a thank-you you never said. Release it as a lantern onto the water, then stay a while with the lanterns already drifting.</p>
+    <h3>Quick start</h3>
+    <ol>
+      <li><b>1</b><span>Tap a lantern to read the note it carries.</span></li>
+      <li><b>2</b><span>Write your own. A few words is enough.</span></li>
+      <li><b>3</b><span>Press <strong>Release</strong> and watch it drift away.</span></li>
+    </ol>
+    <button class="release begin" id="beginSound" type="button">Begin, with night sounds</button>
+    <button class="quiet" id="beginQuiet" type="button">Begin in silence</button>
+    <p class="fine">Anonymous. No name, email or location is collected.</p>
   </div>
 </div>
 
-<!-- HUD logo -->
-<img src="https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/edcb5a05-28f6-45f2-87a6-859201f7dfcf/34+gallery+White+logo.jpg?format=1500w" alt="Gallery White Logo" class="hud-logo">
+<img class="logo" alt="34 Gallery"
+  src="https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/edcb5a05-28f6-45f2-87a6-859201f7dfcf/34+gallery+White+logo.jpg?format=300w"
+  onerror="this.remove()">
 
-<!-- HUD -->
-<div class="hud" aria-live="polite" aria-atomic="true">
-  <div class="card grow">
-    <div class="topline">
-      <label class="meta" for="doubt">Release a quiet doubt</label>
-      <div id="hint" class="hint meta">Click a lantern to read its note where it floats.</div>
+<!-- Keyboard / screen-reader access to the lanterns -->
+<nav class="sr-only" aria-label="Lanterns">
+  <p>Each lantern carries a note. Choose one to read it.</p>
+  <ul id="lanternList"></ul>
+</nav>
+
+<main class="dock" id="dock">
+  <form class="compose" id="composeForm" autocomplete="off">
+    <div class="field">
+      <label for="doubt" class="sr-only">What you want to release</label>
+      <textarea id="doubt" rows="1" maxlength="500" placeholder="A doubt, a wish, a promise, a fear…" aria-describedby="counter"></textarea>
+      <span id="counter" class="counter" aria-live="polite"></span>
     </div>
+    <button class="release" id="release" type="submit" disabled>Release</button>
+  </form>
 
-    <div class="inputwrap">
-      <textarea id="doubt" maxlength="500"
-        placeholder="Type a private doubt (500 chars max)"
-        aria-describedby="counter hint"></textarea>
-      <span id="counter" class="counter" aria-live="polite">500 left</span>
-    </div>
+  <div class="tools">
+    <button class="tool" id="inspire" type="button" title="Suggest a prompt">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18"/></svg>
+      Inspire
+    </button>
+    <button class="tool" id="sound" type="button" aria-pressed="false" title="Night crickets">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>
+      <span id="soundLabel">Crickets</span>
+    </button>
+    <label class="check" title="Keep your lantern on this device only">
+      <input type="checkbox" id="privateMode">
+      <span>Keep private</span>
+    </label>
+    <span class="spacer"></span>
+    <span class="hint" id="hint">Tap a lantern to read it</span>
+    <button class="tool" id="aboutBtn" type="button" title="About this piece">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>
+      <span class="label-sm">About</span>
+    </button>
+  </div>
+</main>
 
-    <div class="row" style="margin-top:10px;">
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <button class="btn secondary" id="random"
-          title="Suggest a gentle prompt if you’re not sure what to write."
-          aria-label="Inspire: suggest a gentle prompt">Inspire</button>
-
-        <button class="btn" id="release"
-          title="Create a new lantern with your text and let it drift."
-          aria-label="Release: create a new lantern with your text">Release</button>
-
-        <button class="btn secondary" id="reset"
-          title="Remove all added lanterns and clear saved notes."
-          aria-label="Reset: remove added lanterns and clear saved notes">Reset</button>
-
-        <label class="meta" style="display:inline-flex;gap:.5rem;align-items:center;">
-          <input id="privateMode" type="checkbox"
-            title="When enabled, new notes will not be saved after refresh."
-            aria-label="Private Mode: do not save new notes">
-          Private mode (no save)
-        </label>
-
-        <!-- Crickets -->
-        <div class="pill" id="cricketsCard" title="Soft mountain-night crickets">
-          <span class="meta" aria-hidden="true">Crickets</span>
-          <button id="cricketsPlay" title="Start or pause the crickets." aria-label="Crickets: play or pause">Play</button>
-          <button class="mute" id="cricketsMute" title="Mute or unmute the crickets." aria-label="Crickets: mute or unmute">Mute</button>
-        </div>
-
-        <!-- About link -->
-        <div class="pill" title="About & credits">
-          <span class="meta" aria-hidden="true">About</span>
-          <a class="linkbtn" href="#about-panel"
-            aria-label="Open About and credits" id="about-link">Open</a>
-        </div>
-      </div>
-    </div>
+<div class="note" id="note" role="dialog" aria-modal="false" aria-labelledby="noteText" hidden>
+  <button class="x" id="noteClose" type="button" aria-label="Close note">✕</button>
+  <p class="text" id="noteText"></p>
+  <div class="foot">
+    <span id="noteWhen"></span>
+    <button class="report" id="noteReport" type="button" hidden>Report</button>
   </div>
 </div>
 
-<div class="toast" id="toast" role="status" aria-live="polite">Your lantern joined the drift.</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<!-- Popover -->
-<div id="popover" class="popover" style="display:none">
-  <span class="close" id="popClose" title="Close" aria-label="Close">✕</span>
-  <div id="popText"></div>
-  <span class="when" id="popWhen"></span>
-</div>
+<dialog id="about" aria-labelledby="aboutTitle">
+  <button class="x" type="button" id="aboutClose" aria-label="Close About">✕</button>
+  <h2 id="aboutTitle">About this piece</h2>
+  <p>A quiet place to set something down. Lanterns drift on still water and rise into the night sky, each carrying something a person chose to let go of: a doubt, a wish, a promise, a fear. Read the ones already adrift, or write your own and release it.</p>
+  <p class="meta"><button type="button" class="linkish" id="showWelcome">Show the welcome &amp; quick start again</button></p>
 
-<!-- About overlay + panel (inlined About.html) -->
-<div id="about-panel-overlay" aria-hidden="true"></div>
-<div id="about-panel" role="dialog" aria-modal="true" aria-labelledby="about-heading">
-  <button id="about-close" aria-label="Close About panel">✕</button>
-  <h1 id="about-heading">About this piece</h1>
-  <p>Lanterns drift on still waters and rise across the starspangled sky. Click a lantern to read the note attached to it. Create a new lantern by typing, then press <strong>Release</strong>.</p>
-
-  <h2>Credits</h2>
-  <p><span class="meta">Concept &amp; design:</span> <em>Adrift.site</em></p>
-  <p><span class="meta">Development assistance:</span> ChatGPT (GPT‑5 Thinking)</p>
-  <p><span class="meta">Adaptation by:</span> 34 Gallery Art Advisor Lawrence Lee</p>
-  <p><span class="meta">Ambient audio:</span> Sound Effect by Georg Arnold</p>
-
-  <h2>How it works</h2>
+  <h3>How it works</h3>
   <ul>
-    <li>Lanterns drift left→right or rise upward with subtle bobbing.</li>
-    <li>Click a lantern to open its note near where it floats.</li>
-    <li>Press <strong>Inspire</strong> for a prompt, then <strong>Release</strong> to add your lantern.</li>
-    <li>Notes you add are saved on your device inside your browser, under the embedded app’s URL (the GitHub Pages / iframe address) — not under lawrenceleeart.com (no server).</li>
-    <li>Use <strong>Private mode</strong> to avoid saving new notes.</li>
+    <li>Tap or click a lantern to read its note. Keyboard users can press <kbd>Tab</kbd> to reach the lantern list.</li>
+    <li>Type a note and press <strong>Release</strong> (or <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Enter</kbd>).</li>
+    <li><strong>Inspire</strong> offers a prompt if you are not sure what to write.</li>
+    <li id="storageNote">Your lanterns are saved only in this browser on this device. No one else can see them.</li>
+    <li>Notes are anonymous. No name, email or location is collected.</li>
   </ul>
-</div>
 
-<!-- Audio -->
-<audio id="bgm" src="https://lawrenceleeart.com/s/mountain-crickets.mp3"></audio>
+  <h3>Credits</h3>
+  <dl class="credits">
+    <dt>Concept &amp; design</dt><dd><em>Adrift.site</em></dd>
+    <dt>Adaptation</dt><dd>Lawrence Lee, 34 Gallery Art Advisor</dd>
+    <dt>Development</dt><dd>ChatGPT (GPT‑5 Thinking) and Claude (Anthropic)</dd>
+    <dt>Ambient audio</dt><dd>Sound effect by Georg Arnold</dd>
+  </dl>
 
-<div id="errorBanner"></div>
+  <h3>Your lanterns</h3>
+  <p class="meta" id="mineCount"></p>
+  <button class="danger" id="clearMine" type="button">Clear my saved lanterns</button>
+</dialog>
+
+<audio id="crickets" src="https://lawrenceleeart.com/s/mountain-crickets.mp3" loop preload="none"></audio>
 
 <script>
-(function(){
-  const banner=document.getElementById('errorBanner');
-  function showErr(msg){ banner.textContent='Error: '+msg; banner.style.display='block'; }
+/* ==========================================================
+   SHARED LANTERNS (optional)
+   Leave both blank to keep every visitor's lanterns private.
+   Fill them in (see SETUP.md) so everyone sees everyone's lanterns.
+   ========================================================== */
+const SHARED = {
+  url: 'https://iqmjqljbffnzbptqqvlh.supabase.co',
+  anonKey: 'sb_publishable_sewoSlc-itLhC2ueGUT0_A_OcquX-ii'   // Publishable key (safe to be public)
+};
 
-  try{
-    document.addEventListener('DOMContentLoaded', function(){
-      const lane=document.getElementById('lane');
-      const textarea=document.getElementById('doubt');
-      const counter=document.getElementById('counter');
-      const releaseBtn=document.getElementById('release');
-      const inspire=document.getElementById('random');
-      const resetBtn=document.getElementById('reset');
-      const privateMode=document.getElementById('privateMode');
-      const toast=document.getElementById('toast');
+(() => {
+'use strict';
 
-      const pop=document.getElementById('popover');
-      const popText=document.getElementById('popText');
-      const popWhen=document.getElementById('popWhen');
-      const popClose=document.getElementById('popClose');
+const LANTERN_SRC = 'https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/2c7feec3-1d0f-4ad9-9f5e-91bdecb8ef34/lantern1.png?format=500w';
+const LANTERN_FALLBACK = 'https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/4620ab39-1273-4bc1-99d2-018dc7cd8607/lantern1.jpg?format=500w';
 
-      /* Audio / Crickets */
-      const bgm=document.getElementById('bgm');
-      const cricketsCard=document.getElementById('cricketsCard');
-      const cricketsPlay=document.getElementById('cricketsPlay');
-      const cricketsMute=document.getElementById('cricketsMute');
+const SEED_NOTES = [
+  'A gentle thought, adrift.',
+  'The tide carries this quietly.',
+  'Letting go, for tonight.',
+  'Upward into the dark, softly.',
+  'Another small light, rising.'
+];
 
-      const cssNum=(name,fallback)=> parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)) || fallback;
-      const fmtNow=()=>new Date().toLocaleString([], {hour:'2-digit', minute:'2-digit', month:'short', day:'numeric'});
+const PROMPTS = [
+  'What if I try and it still isn’t enough?',
+  'How do I start again without her?',
+  'Am I mistaking caution for wisdom?',
+  'Who am I when the work is quiet?',
+  'What if the silence speaks louder than words?',
+  'How do I find strength in the spaces between?',
+  'Am I holding on to hope or fear?',
+  'Who do I become when all masks are removed?',
+  'What if the path forward is through uncertainty?',
+  'How do I heal when time feels frozen?',
+  'Am I learning or merely repeating lessons?',
+  'Who stands beside me when the noise fades?',
+  'What if the darkness reveals the hidden light?',
+  'How do I trust myself after so many doubts?',
+  'I wish I had said thank you while I could.',
+  'I promise to be gentler with myself this year.',
+  'I’m afraid of becoming someone I don’t recognize.',
+  'I wish for one more ordinary afternoon together.',
+  'I promise to finish what I started.',
+  'I’m letting go of who I thought I should be.',
+  'May the people I love be safe tonight.'
+];
 
-      function applyFlicker(img){
-        const dur  = (0.55 + Math.random() * 0.40).toFixed(2) + 's';
-        const delay= (-Math.random() * 0.80).toFixed(2) + 's';
-        const variants=['flickerA','flickerB','flickerC','flickerD'];
-        const name=variants[Math.floor(Math.random()*variants.length)];
-        img.style.animation = name + ' ' + dur + ' ease-in-out infinite';
-        img.style.animationDelay = delay;
-      }
+const KEY_NOTES = 'adrift_notes_v1';      // kept from the original so saved notes carry over
+const KEY_PRIVATE = 'adrift_private_v1';
+const KEY_SOUND = 'adrift_crickets_v2';
+const KEY_REPORTED = 'adrift_reported_v1';
+const MAX_SAVED = 50;
+const MAX_ON_SCREEN = 70;
 
-      /* Popover */
-      let popTimer=null;
-      function showPopover(text, targetEl){
-        popText.textContent=text; popWhen.textContent=fmtNow();
-        pop.className='popover';
-        pop.style.display='block'; pop.style.visibility='hidden';
+const sharedOn = !!(SHARED.url && SHARED.anonKey);
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-        const r=targetEl.getBoundingClientRect();
-        const pw=pop.offsetWidth, ph=pop.offsetHeight;
-        const vw=innerWidth, vh=innerHeight, gap=10;
+/* ---------- helpers ---------- */
+const $ = id => document.getElementById(id);
+const rand = (a,b) => a + Math.random()*(b-a);
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); }catch{ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} },
+  del(k){ try{ localStorage.removeItem(k); }catch{} }
+};
+function when(ts){
+  if(!ts) return '';
+  const d = new Date(ts), now = Date.now(), s = (now - d)/1000;
+  if(s < 60) return 'Released just now';
+  if(s < 3600) return `Released ${Math.round(s/60)} min ago`;
+  if(s < 86400) return `Released ${Math.round(s/3600)} hr ago`;
+  const opts = { month:'short', day:'numeric' };
+  if(d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
+  return 'Released ' + d.toLocaleDateString([], opts);
+}
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'l' + Date.now().toString(36) + Math.random().toString(36).slice(2));
 
-        if (vw < 420){
-          const left = Math.max(8, (vw - pw)/2);
-          const top  = Math.max(8, r.bottom + gap);
-          pop.style.left = Math.round(left)+'px';
-          pop.style.top  = Math.round(Math.min(top, vh - ph - 8))+'px';
-          pop.style.visibility='visible';
-          clearTimeout(popTimer); popTimer=setTimeout(()=>{ pop.style.display='none'; }, 5000);
-          return;
-        }
+/* ---------- canvas ---------- */
+const canvas = $('scene');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0, DPR = 1, horizon = 0;
 
-        let left=r.right+gap, top=r.top + (r.height/2) - (ph/2), arrow='arrow-left';
-        if(left + pw > vw - 8){ left = r.left - pw - gap; arrow='arrow-right'; }
-        left = Math.max(8, Math.min(left, vw - pw - 8));
+function resize(){
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  W = innerWidth; H = innerHeight;
+  canvas.width = Math.round(W*DPR); canvas.height = Math.round(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  horizon = Math.round(H * (W < 600 ? 0.6 : 0.64));
+  buildStars();
+  lanterns.forEach(l => { if(l.mode === 'float') l.y = floatY(l.z); });
+  closeNote();
+}
 
-        if(top < 8){ top = r.bottom + gap; arrow='arrow-top'; }
-        else if(top + ph > vh - 8){ top = r.top - ph - gap; arrow='arrow-bottom'; }
-        top = Math.max(8, Math.min(top, vh - ph - 8));
+/* stars */
+let stars = [];
+function buildStars(){
+  const n = Math.round((W*horizon)/2600);
+  stars = Array.from({length:n}, () => {
+    const big = Math.random() < 0.06;
+    return {
+      x: Math.random()*W,
+      y: Math.pow(Math.random(), 1.25) * horizon * 0.98,
+      r: big ? rand(1.1,1.7) : rand(0.35,1.0),
+      a: rand(0.35, 1),
+      tw: rand(0.4, 1.8),        // twinkle speed
+      ph: Math.random()*Math.PI*2,
+      hue: Math.random() < 0.15 ? 'rgba(255,225,190,' : (Math.random() < 0.2 ? 'rgba(200,220,255,' : 'rgba(255,255,255,')
+    };
+  });
+}
+let shooting = null, nextShooting = performance.now() + rand(15000, 40000);
 
-        pop.style.left = Math.round(left)+'px'; pop.style.top = Math.round(top)+'px';
-        pop.classList.add(arrow);
-        pop.style.visibility='visible';
+/* lantern sprite */
+const sprite = { img:null, ready:false, ar:1.35, blend:'source-over' };
+(function loadSprite(){
+  const tryLoad = (src, blend, next) => {
+    const im = new Image();
+    im.crossOrigin = 'anonymous';
+    im.onload = () => { sprite.img = im; sprite.ready = true; sprite.ar = im.naturalHeight/im.naturalWidth || 1.35; sprite.blend = blend; };
+    im.onerror = () => { if(next) next(); };
+    im.src = src;
+  };
+  tryLoad(LANTERN_SRC, 'source-over', () => tryLoad(LANTERN_FALLBACK, 'screen', null));
+})();
 
-        clearTimeout(popTimer);
-        popTimer=setTimeout(()=>{ pop.style.display='none'; }, 5000);
-      }
-      function hidePopover(){ clearTimeout(popTimer); pop.style.display='none'; }
-      popClose.addEventListener('click', hidePopover);
-      document.addEventListener('keydown', e=>{ if(e.key==='Escape') hidePopover(); });
-      document.addEventListener('click', e=>{ if(!e.target.closest('.popover') && !e.target.closest('.lantern')) hidePopover(); });
+/* hand-drawn fallback lantern (used until / unless the image loads) */
+function drawPaperLantern(c, w, h, glow){
+  const g = c.createLinearGradient(0, -h/2, 0, h/2);
+  g.addColorStop(0, `rgba(255,${170+40*glow|0},90,1)`);
+  g.addColorStop(.55, `rgba(255,${205+40*glow|0},${130+50*glow|0},1)`);
+  g.addColorStop(1, 'rgba(230,120,50,1)');
+  c.fillStyle = g;
+  c.beginPath();
+  c.moveTo(-w*0.36, -h/2);
+  c.lineTo(w*0.36, -h/2);
+  c.bezierCurveTo(w*0.56, -h*0.1, w*0.52, h*0.28, w*0.42, h/2);
+  c.lineTo(-w*0.42, h/2);
+  c.bezierCurveTo(-w*0.52, h*0.28, -w*0.56, -h*0.1, -w*0.36, -h/2);
+  c.closePath(); c.fill();
+  c.strokeStyle = 'rgba(120,50,20,.35)'; c.lineWidth = Math.max(.6, w*0.03);
+  for(let i=-1;i<=1;i++){ c.beginPath(); c.moveTo(i*w*0.16,-h/2); c.quadraticCurveTo(i*w*0.24, 0, i*w*0.2, h/2); c.stroke(); }
+  c.fillStyle = 'rgba(60,30,15,.85)';
+  c.fillRect(-w*0.38, -h/2 - h*0.04, w*0.76, h*0.06);
+  c.fillRect(-w*0.44, h/2 - h*0.02, w*0.88, h*0.05);
+}
 
-      /* Wire initial lanterns */
-      function wireLantern(el){
-        const img = el.querySelector('img');
-        if (img) applyFlicker(img);
+/* ---------- lanterns ---------- */
+const lanterns = [];
+let hovered = null, selected = null;
 
-        const open=()=>showPopover(el.dataset.text || 'A gentle thought, adrift.', el);
-        el.addEventListener('click', ev=>{ ev.stopPropagation(); open(); }, {passive:true});
-        el.addEventListener('keydown', ev=>{ if(ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); open(); }});
-        if(!el.hasAttribute('tabindex')) el.setAttribute('tabindex','0');
-      }
-      lane.querySelectorAll('.lantern').forEach(wireLantern);
+function baseSize(){ return clamp(Math.min(W,H) * 0.075, 38, 64); }
+function floatY(z){ // further lanterns sit closer to the horizon
+  const t = (z - 0.35) / 0.65;
+  return horizon + 6 + t * (H - horizon) * 0.42;
+}
 
-      /* Counter + Release state */
-      function updateRemain(){
-        const len=(textarea.value?.length || 0);
-        const left=Math.max(0, 500 - len);
+function makeLantern(note, opts = {}){
+  const z = opts.z ?? rand(0.38, 1);
+  const mode = opts.mode ?? (Math.random() < 0.35 ? 'rise' : 'float');
+  const l = {
+    note, z, mode,
+    x: opts.x ?? rand(-0.05, 1.05) * W,
+    y: 0,
+    vx: rand(6, 11) * z * (Math.random() < 0.85 ? 1 : -1),
+    vy: -rand(5, 9) * z,
+    sway: rand(0.25, 0.6), swayAmp: rand(4, 10) * z, ph: Math.random()*Math.PI*2,
+    fl: Math.random()*100, flSpeed: rand(5, 9),
+    born: performance.now(), fadeIn: opts.fadeIn ?? 1,
+    hover: 0, sel: 0
+  };
+  if(mode === 'float') l.y = floatY(z);
+  else l.y = opts.y ?? rand(horizon * 0.15, horizon + 20);
+  if(opts.launch){ // a newly released lantern: lifts from the dock, then joins the drift
+    l.mode = 'launch'; l.x = W/2; l.y = H - 120; l.z = 1; l.target = mode; l.fadeIn = 0;
+    l.vx = rand(-4, 4); l.vy = -26; l.flSpeed = 8;
+  }
+  lanterns.push(l);
+  lanterns.sort((a,b) => a.z - b.z);
+  trimLanterns();
+  renderList();
+  return l;
+}
 
-        counter.textContent= left + ' left';
-        counter.classList.toggle('warn', left<=100 && left>0);
-        counter.classList.toggle('limit', left===0);
+function trimLanterns(){
+  while(lanterns.length > MAX_ON_SCREEN){
+    // retire the oldest non-seed lantern that isn't the visitor's own or currently open
+    const i = lanterns.findIndex(l => !l.note.seed && !l.note.mine && l !== selected);
+    if(i < 0) break;
+    lanterns.splice(i, 1);
+  }
+}
 
-        releaseBtn.disabled = (len===0);
-        if(left===0){
-          releaseBtn.textContent='Release (at limit)';
-          releaseBtn.title='You’ve reached 500 characters (still OK to release)';
-          releaseBtn.setAttribute('aria-label','Release (at limit)');
-        }else{
-          releaseBtn.textContent='Release';
-          releaseBtn.title='Create a new lantern with your text and let it drift.';
-          releaseBtn.setAttribute('aria-label','Release: create a new lantern with your text');
-        }
-      }
-      textarea.addEventListener('input', updateRemain);
-      updateRemain();
-      if (textarea) textarea.focus();
+function lanternSize(l){ const w = baseSize() * (0.45 + 0.55*l.z); return { w, h: w * (sprite.ready ? sprite.ar : 1.3) }; }
 
-      /* Inspire */
-      inspire.addEventListener('click', ()=>{
-        const ideas=[
-          "What if I try and it still isn’t enough?",
-          "How do I start again without her?",
-          "Am I mistaking caution for wisdom?",
-          "Who am I when the work is quiet?",
-          "What if the silence speaks louder than words?",
-          "How do I find strength in the spaces between?",
-          "Am I holding on to hope or fear?",
-          "Who do I become when all masks are removed?",
-          "What if the path forward is through uncertainty?",
-          "How do I heal when time feels frozen?",
-          "Am I learning or merely repeating lessons?",
-          "Who stands beside me when the noise fades?",
-          "What if the darkness reveals the hidden light?",
-          "How do I trust myself after so many doubts?"
-        ];
-        textarea.value=ideas[Math.floor(Math.random()*ideas.length)];
-        updateRemain();
-      });
+function update(l, dt, t){
+  if(l === selected) { l.sel = Math.min(1, l.sel + dt*4); }
+  else l.sel = Math.max(0, l.sel - dt*3);
+  l.hover += ((l === hovered ? 1 : 0) - l.hover) * Math.min(1, dt*10);
+  l.fadeIn = Math.min(1, l.fadeIn + dt*0.7);
+  if(l === selected) return; // pause while being read
 
-      /* Spawn lanterns */
-      function spawnLantern(text){
-        const el=document.createElement('div');
-        el.className='lantern drift';
-        el.setAttribute('role','button');
-        el.setAttribute('tabindex','0');
-        el.dataset.text=text;
+  const speed = reduceMotion ? 0.25 : 1;
+  l.fl += dt * l.flSpeed;
+  if(l.mode === 'float'){
+    l.x += l.vx * dt * speed;
+    const { w } = lanternSize(l);
+    if(l.vx > 0 && l.x > W + w) l.x = -w;
+    if(l.vx < 0 && l.x < -w) l.x = W + w;
+  }else if(l.mode === 'rise'){
+    l.y += l.vy * dt * speed;
+    l.x += Math.sin(t*l.sway + l.ph) * dt * l.swayAmp * 0.3 * speed + l.vx*0.15*dt*speed;
+    if(l.y < -60){ l.y = horizon + rand(0, 30); l.x = rand(0.05, 0.95)*W; l.fadeIn = 0; }
+  }else if(l.mode === 'launch'){
+    l.y += l.vy * dt; l.x += l.vx * dt;
+    if(l.target === 'float'){
+      const ty = floatY(l.z);
+      if(l.y <= ty + 2){ l.mode = 'float'; l.y = ty; l.vx = rand(7, 11) * (Math.random()<.5?1:-1); }
+      else if(l.y > horizon) l.vy = -Math.max(14, (l.y - ty) * 0.9);
+    }else if(l.y < horizon - 10){ l.mode = 'rise'; l.vy = -rand(6, 9); }
+  }
+}
 
-        const inner=document.createElement('span'); inner.className='inner';
-        const img=document.createElement('img'); img.alt='lantern';
-        img.src='https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/2c7feec3-1d0f-4ad9-9f5e-91bdecb8ef34/lantern1.png?format=1500w';
-        img.onerror=()=>{ img.onerror=null; img.src='https://images.squarespace-cdn.com/content/v1/5563f11ee4b02c9d26fbce50/4620ab39-1273-4bc1-99d2-018dc7cd8607/lantern1.jpg?format=1500w'; };
-        applyFlicker(img);
-        inner.appendChild(img); el.appendChild(inner);
+function lanternPos(l, t){
+  if(l.mode === 'float'){
+    return { x: l.x, y: l.y - lanternSize(l).h*0.45 + Math.sin(t*1.4 + l.ph) * 2.2 * l.z };
+  }
+  return { x: l.x + Math.sin(t*l.sway + l.ph) * l.swayAmp, y: l.y };
+}
 
-        if(Math.random()<0.3){
-          el.classList.remove('drift'); el.classList.add('rise');
-        }
+function flicker(l){
+  const f = l.fl;
+  return 0.78 + 0.12*Math.sin(f*1.7) + 0.07*Math.sin(f*3.9 + 1.3) + 0.05*Math.sin(f*7.3 + 0.4);
+}
 
-        const laneH=lane.clientHeight, laneW=lane.clientWidth;
-        const approxH=cssNum('--lantern-w',48)*2.0;
-        if(el.classList.contains('rise')){
-          const margin=10, maxLeft=Math.max(0, laneW-cssNum('--lantern-w',48)-margin*2);
-          el.style.left=(margin+Math.random()*maxLeft)+'px';
-          el.style.animationDuration=(80+Math.random()*20)+'s';
-          el.style.animationDelay=(-Math.random()*8)+'s';
-        }else{
-          const maxTop=Math.max(0, laneH-approxH);
-          el.style.top=(Math.random()*maxTop)+'px';
-          el.style.animationDuration=(50+Math.random()*25)+'s';
-          el.style.animationDelay=(-Math.random()*12)+'s';
-        }
+function heightFade(l, y){
+  if(l.mode !== 'rise') return 1;
+  const top = y / horizon;               // 1 at horizon, 0 at top of screen
+  return clamp(0.25 + 0.75*top, 0, 1);
+}
 
-        wireLantern(el);
-        lane.appendChild(el);
-      }
+function drawLantern(c, l, t, reflected){
+  const { w, h } = lanternSize(l);
+  const p = lanternPos(l, t);
+  let glow = flicker(l) + l.hover*0.18 + l.sel*0.35;
+  const fade = l.fadeIn * heightFade(l, p.y);
+  const alpha = fade * (0.55 + 0.45*l.z);
 
-      /* Persistence for notes */
-      const KEY='adrift_notes_v1';
-      const PMKEY='adrift_private_v1';
-      try{ privateMode.checked = localStorage.getItem(PMKEY)==='1'; }catch(_){}
-      privateMode.addEventListener('change', ()=>{ try{ localStorage.setItem(PMKEY, privateMode.checked?'1':'0'); }catch(_){ } });
+  // halo
+  const R = w * (1.6 + 0.6*glow + l.sel*0.8);
+  const hg = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, R);
+  hg.addColorStop(0, `rgba(255,190,110,${0.30*glow*alpha})`);
+  hg.addColorStop(0.35, `rgba(255,150,70,${0.12*glow*alpha})`);
+  hg.addColorStop(1, 'rgba(255,120,40,0)');
+  c.globalCompositeOperation = 'lighter';
+  c.fillStyle = hg;
+  c.beginPath(); c.arc(p.x, p.y, R, 0, Math.PI*2); c.fill();
 
-      function persist(text){
-        try{
-          const arr=JSON.parse(localStorage.getItem(KEY)||'[]');
-          arr.push({t:text, ts:Date.now()});
-          while(arr.length>50) arr.shift();
-          localStorage.setItem(KEY, JSON.stringify(arr));
-        }catch(_){}
-      }
-      (function restore(){
-        try{ (JSON.parse(localStorage.getItem(KEY)||'[]')).forEach(i=>spawnLantern(i.t)); }catch(_){}
-      })();
+  // body
+  c.globalCompositeOperation = sprite.ready ? sprite.blend : 'source-over';
+  c.globalAlpha = alpha;
+  c.save();
+  c.translate(p.x, p.y);
+  if(l.mode !== 'float') c.rotate(Math.sin(t*l.sway + l.ph) * 0.04);
+  if(sprite.ready){
+    c.filter = `brightness(${(0.72 + 0.4*glow).toFixed(3)})`;
+    c.drawImage(sprite.img, -w/2, -h/2, w, h);
+    c.filter = 'none';
+  }else{
+    drawPaperLantern(c, w, h, glow);
+    // inner light
+    c.globalCompositeOperation = 'lighter';
+    const ig = c.createRadialGradient(0, h*0.08, 0, 0, h*0.08, w*0.45);
+    ig.addColorStop(0, `rgba(255,240,200,${0.55*glow})`);
+    ig.addColorStop(1, 'rgba(255,200,120,0)');
+    c.fillStyle = ig; c.fillRect(-w/2, -h/2, w, h);
+  }
+  c.restore();
+  c.globalAlpha = 1;
+  c.globalCompositeOperation = 'source-over';
 
-      /* Release */
-      releaseBtn.addEventListener('click', ()=>{
-        const text=textarea.value.trim(); if(!text) return;
-        spawnLantern(text);
-        if(!privateMode.checked) persist(text);
-        textarea.value=''; updateRemain();
-        toast.textContent='Your lantern joined the drift.';
-        toast.classList.add('show');
-        setTimeout(()=>toast.classList.remove('show'),1100);
-      });
+  l._hit = { x:p.x - w/2 - 6, y:p.y - h/2 - 6, w:w + 12, h:h + 12, cx:p.x, cy:p.y };
+}
 
-      /* Reset */
-      const INITIAL_COUNT=5;
-      resetBtn.addEventListener('click', ()=>{
-        const all=[...lane.querySelectorAll('.lantern')];
-        all.slice(INITIAL_COUNT).forEach(el=>el.remove());
-        try{ localStorage.removeItem(KEY); }catch(_){}
-        hidePopover();
-        toast.textContent='Reset complete.';
-        toast.classList.add('show');
-        setTimeout(()=>toast.classList.remove('show'),1000);
-      });
+/* reflection of a lantern on the water */
+function drawReflection(c, l, t){
+  const { w, h } = lanternSize(l);
+  const p = lanternPos(l, t);
+  // mirror around the waterline beneath the lantern
+  const waterY = l.mode === 'float' ? l.y : horizon;
+  const dist = waterY - p.y;
+  if(dist > horizon * 0.9) return;
+  const ry = waterY + dist * (l.mode === 'float' ? 1 : 0.55);
+  const vis = l.fadeIn * (l.mode === 'float' ? 1 : clamp(1 - dist/(horizon*0.7), 0, 1));
+  if(vis <= 0.02 || ry > H + 40) return;
+  const glow = flicker(l) + l.sel*0.35;
 
-      /* Crickets controls (persistent) */
-      const SKEY='adrift_crickets_v1';
-      let soundState={ wantPlay:false, muted:false };
-      try{
-        const saved=JSON.parse(localStorage.getItem(SKEY)||'{}');
-        if(typeof saved.wantPlay==='boolean') soundState.wantPlay=saved.wantPlay;
-        if(typeof saved.muted==='boolean')    soundState.muted=saved.muted;
-      }catch(_){}
-      function saveSound(){ try{ localStorage.setItem(SKEY, JSON.stringify(soundState)); }catch(_){ } }
-      function applyMuteUI(){
-        cricketsMute.textContent=soundState.muted?'Unmute':'Mute';
-        cricketsMute.setAttribute('aria-pressed', String(soundState.muted));
-      }
-      function applyPlayUI(){
-        cricketsPlay.textContent=soundState.wantPlay?'Pause':'Play';
-        cricketsPlay.setAttribute('aria-pressed', String(soundState.wantPlay));
-      }
-      bgm.muted=soundState.muted; applyMuteUI(); applyPlayUI();
+  // long shimmering streak
+  const streakH = Math.min(H - waterY, (l.mode === 'float' ? 90 : 60) * (0.5 + l.z));
+  c.globalCompositeOperation = 'lighter';
+  const rows = 26;
+  const top = Math.max(horizon + 1, ry - h*0.25);
+  // soft vertical column of light
+  const col = c.createLinearGradient(0, top, 0, top + streakH);
+  col.addColorStop(0, `rgba(255,170,90,${0.10*glow*vis*(0.4+0.6*l.z)})`);
+  col.addColorStop(1, 'rgba(255,170,90,0)');
+  c.fillStyle = col;
+  c.fillRect(p.x - w*0.18, top, w*0.36, streakH);
+  // broken, shimmering highlights on top
+  for(let i=0;i<rows;i++){
+    const k = i/rows;
+    const yy = top + k*streakH;
+    const n = Math.sin(i*12.9898 + l.ph*7) * 0.5 + 0.5;            // stable per-row variation
+    const off = Math.sin(t*1.6 + i*1.7 + l.ph) * (2 + 4*k) * l.z;
+    const ww = w * (0.5 - k*0.32) * (0.45 + 0.75*n) * (0.85 + 0.15*Math.sin(t*2.1 + i*2.3));
+    const a = 0.20 * glow * vis * (1 - k) * (0.35 + 0.65*n) * (0.4 + 0.6*l.z);
+    if(a < 0.004) continue;
+    c.fillStyle = `rgba(255,${175 + 40*(1-k) | 0},${100 + 40*(1-k) | 0},${a})`;
+    const hh = Math.max(0.8, streakH/rows*0.45);
+    c.beginPath();
+    c.ellipse(p.x + off, yy, ww/2, hh, 0, 0, Math.PI*2);
+    c.fill();
+  }
+  c.globalCompositeOperation = 'source-over';
+}
 
-      function tryPlay(){
-        return bgm.play().then(()=>{
-          soundState.wantPlay=true; applyPlayUI(); saveSound();
-        }).catch(()=>{});
-      }
-      function tryPause(){
-        bgm.pause(); soundState.wantPlay=false; applyPlayUI(); saveSound();
-      }
-      function primeAudio(){ if(soundState.wantPlay) tryPlay(); }
+/* ---------- main render loop ---------- */
+let last = performance.now();
+function frame(now){
+  const dt = Math.min(0.05, (now - last)/1000); last = now;
+  const t = now/1000;
 
-      cricketsPlay.addEventListener('click', ()=>{
-        if(bgm.paused) tryPlay(); else tryPause();
-      });
-      cricketsMute.addEventListener('click', ()=>{
-        soundState.muted=!soundState.muted;
-        bgm.muted=soundState.muted;
-        applyMuteUI(); saveSound();
-      });
+  // sky
+  const sky = ctx.createLinearGradient(0, 0, 0, horizon);
+  sky.addColorStop(0, '#02040a');
+  sky.addColorStop(0.55, '#06101e');
+  sky.addColorStop(1, '#13233a');
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, horizon);
 
-      bgm.addEventListener('error', ()=>{
-        [cricketsPlay, cricketsMute].forEach(b=>{
-          b.disabled=true;
-          b.title='Audio file not found';
-        });
-        const note=document.createElement('span');
-        note.className='meta';
-        note.textContent=' (audio not found)';
-        cricketsCard.appendChild(note);
-      });
+  // faint horizon glow
+  const hz = ctx.createRadialGradient(W*0.5, horizon, 0, W*0.5, horizon, W*0.7);
+  hz.addColorStop(0, 'rgba(255,160,90,0.10)');
+  hz.addColorStop(1, 'rgba(255,160,90,0)');
+  ctx.fillStyle = hz; ctx.fillRect(0, 0, W, horizon);
 
-      document.addEventListener('click', primeAudio, {once:false});
+  // stars
+  for(const s of stars){
+    const tw = reduceMotion ? 1 : 0.65 + 0.35*Math.sin(t*s.tw + s.ph);
+    ctx.fillStyle = s.hue + (s.a*tw).toFixed(3) + ')';
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill();
+  }
 
-      /* Resize guard */
-      window.addEventListener('resize', ()=>{
-        const approxH=cssNum('--lantern-w',48)*2.0;
-        const maxTop=Math.max(0, lane.clientHeight-approxH);
-        [...lane.querySelectorAll('.lantern:not(.rise)')].forEach(el=>{
-          const top=parseFloat(el.style.top)||0;
-          el.style.top=Math.min(top, maxTop)+'px';
-        });
-        hidePopover();
-      }, {passive:true});
+  // occasional shooting star
+  if(!reduceMotion){
+    if(!shooting && now > nextShooting){
+      shooting = { x: rand(0.1,0.7)*W, y: rand(0.05,0.35)*horizon, vx: rand(380,520), vy: rand(90,160), life: 0 };
+    }
+    if(shooting){
+      shooting.life += dt;
+      const s = shooting, a = Math.max(0, 1 - s.life/0.9);
+      const x = s.x + s.vx*s.life, y = s.y + s.vy*s.life;
+      const g = ctx.createLinearGradient(x, y, x - s.vx*0.18, y - s.vy*0.18);
+      g.addColorStop(0, `rgba(255,255,255,${0.8*a})`); g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.strokeStyle = g; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - s.vx*0.18, y - s.vy*0.18); ctx.stroke();
+      if(a <= 0){ shooting = null; nextShooting = now + rand(20000, 50000); }
+    }
+  }
 
-      /* About panel wiring */
-      const aboutLink  = document.getElementById('about-link');
-      const aboutPanel = document.getElementById('about-panel');
-      const aboutOverlay = document.getElementById('about-panel-overlay');
-      const aboutClose = document.getElementById('about-close');
+  // distant hills
+  ctx.fillStyle = '#050a12';
+  ctx.beginPath(); ctx.moveTo(0, horizon);
+  for(let x=0; x<=W; x+=W/40){
+    const y = horizon - 10 - 18*Math.sin(x/W*Math.PI*2.2 + 1) * Math.sin(x/W*Math.PI*0.9 + .3) - 8*Math.sin(x/W*13);
+    ctx.lineTo(x, Math.min(horizon, y));
+  }
+  ctx.lineTo(W, horizon); ctx.closePath(); ctx.fill();
 
-      function openAbout(e){
-        if(e) e.preventDefault();
-        aboutPanel.style.display='block';
-        aboutOverlay.style.display='block';
-        aboutPanel.setAttribute('aria-hidden','false');
-        aboutOverlay.setAttribute('aria-hidden','false');
-      }
-      function closeAbout(){
-        aboutPanel.style.display='none';
-        aboutOverlay.style.display='none';
-        aboutPanel.setAttribute('aria-hidden','true');
-        aboutOverlay.setAttribute('aria-hidden','true');
-      }
-      if(aboutLink){
-        aboutLink.addEventListener('click', openAbout);
-      }
-      if(aboutClose){
-        aboutClose.addEventListener('click', closeAbout);
-      }
-      if(aboutOverlay){
-        aboutOverlay.addEventListener('click', closeAbout);
-      }
-      document.addEventListener('keydown', e=>{
-        if(e.key==='Escape') closeAbout();
-      });
+  // water
+  const water = ctx.createLinearGradient(0, horizon, 0, H);
+  water.addColorStop(0, '#0d1a2b');
+  water.addColorStop(0.25, '#08121f');
+  water.addColorStop(1, '#03070d');
+  ctx.fillStyle = water; ctx.fillRect(0, horizon, W, H - horizon);
+
+  // star reflections (sparse, shimmering)
+  for(let i=0; i<stars.length; i+=3){
+    const s = stars[i];
+    if(s.y < horizon*0.45) continue;
+    const ry = horizon + (horizon - s.y) * 0.6;
+    if(ry > H) continue;
+    const off = reduceMotion ? 0 : Math.sin(t*1.2 + i)*2;
+    ctx.fillStyle = `rgba(200,220,255,${(s.a*0.22).toFixed(3)})`;
+    ctx.fillRect(s.x + off - s.r*1.6, ry, s.r*3.2, 0.8);
+  }
+
+  // gentle ripple lines
+  ctx.strokeStyle = 'rgba(160,200,235,0.05)'; ctx.lineWidth = 1;
+  for(let i=1;i<12;i++){
+    const yy = horizon + Math.pow(i/12, 1.6) * (H - horizon);
+    ctx.beginPath();
+    for(let x=0; x<=W; x+=24){
+      const y = yy + Math.sin(x*0.02 + t*(reduceMotion?0:0.6) + i) * (0.6 + i*0.12);
+      x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  // horizon line shimmer
+  ctx.fillStyle = 'rgba(255,190,130,0.08)'; ctx.fillRect(0, horizon, W, 1);
+
+  // lanterns: update, reflections, then bodies (far → near)
+  for(const l of lanterns) update(l, dt, t);
+  for(const l of lanterns) drawReflection(ctx, l, t);
+  for(const l of lanterns) drawLantern(ctx, l, t, false);
+
+  if(selected) positionNote(selected);
+  requestAnimationFrame(frame);
+}
+
+/* ---------- picking ---------- */
+function pick(x, y){
+  let best = null, bestD = Infinity;
+  for(let i=lanterns.length-1; i>=0; i--){ // near ones first
+    const l = lanterns[i], b = l._hit;
+    if(!b) continue;
+    if(x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h){
+      const d = Math.hypot(x - b.cx, y - b.cy) / (0.6 + l.z);
+      if(d < bestD){ best = l; bestD = d; }
+    }
+  }
+  return best;
+}
+
+canvas.addEventListener('pointermove', e => {
+  if(e.pointerType !== 'mouse') return;
+  hovered = pick(e.clientX, e.clientY);
+  canvas.classList.toggle('pointer', !!hovered);
+});
+canvas.addEventListener('pointerleave', () => { hovered = null; canvas.classList.remove('pointer'); });
+canvas.addEventListener('click', e => {
+  const l = pick(e.clientX, e.clientY);
+  if(l) openNote(l); else closeNote();
+});
+
+/* ---------- note card ---------- */
+const note = $('note'), noteText = $('noteText'), noteWhen = $('noteWhen'), noteReport = $('noteReport');
+let returnFocus = null;
+
+function openNote(l, fromKeyboard){
+  selected = l;
+  noteText.textContent = l.note.text;
+  noteWhen.textContent = l.note.seed ? '' : (l.note.mine ? (when(l.note.ts) + ' · yours') : when(l.note.ts));
+  noteReport.hidden = !(sharedOn && l.note.remoteId && !l.note.mine);
+  note.hidden = false;
+  positionNote(l);
+  requestAnimationFrame(() => note.classList.add('open'));
+  if(fromKeyboard){ returnFocus = document.activeElement; $('noteClose').focus({preventScroll:true}); }
+}
+function closeNote(){
+  if(!selected && note.hidden) return;
+  selected = null;
+  note.classList.remove('open');
+  setTimeout(() => { if(!selected) note.hidden = true; }, 250);
+  if(returnFocus){ returnFocus.focus({preventScroll:true}); returnFocus = null; }
+}
+function positionNote(l){
+  const b = l._hit; if(!b) return;
+  const nw = note.offsetWidth, nh = note.offsetHeight, gap = 14, m = 12;
+  const dockTop = $('dock').getBoundingClientRect().top;
+  let x = b.cx + b.w/2 + gap, y = b.cy - nh/2;
+  if(x + nw > W - m) x = b.cx - b.w/2 - gap - nw;
+  if(x < m){ x = clamp(b.cx - nw/2, m, W - nw - m); y = b.y - nh - gap; if(y < m) y = b.y + b.h + gap; }
+  y = clamp(y, m, Math.max(m, dockTop - nh - m));
+  note.style.left = Math.round(x) + 'px';
+  note.style.top = Math.round(y) + 'px';
+}
+$('noteClose').addEventListener('click', closeNote);
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && selected) closeNote(); });
+document.addEventListener('pointerdown', e => {
+  if(selected && !note.contains(e.target) && e.target !== canvas) closeNote();
+});
+
+/* accessible lantern list */
+const list = $('lanternList');
+let listTimer = null;
+function renderList(){
+  clearTimeout(listTimer);
+  listTimer = setTimeout(() => {
+    list.innerHTML = '';
+    lanterns.forEach((l, i) => {
+      const li = document.createElement('li');
+      const b = document.createElement('button');
+      b.type = 'button';
+      const preview = l.note.text.length > 60 ? l.note.text.slice(0, 60) + '…' : l.note.text;
+      b.textContent = `Lantern ${i+1}: ${preview}`;
+      b.addEventListener('click', () => openNote(l, true));
+      b.addEventListener('focus', () => { hovered = l; });
+      b.addEventListener('blur', () => { if(hovered === l) hovered = null; });
+      li.appendChild(b); list.appendChild(li);
     });
-  }catch(err){ showErr(err.message||String(err)); }
+  }, 50);
+}
+
+/* ---------- compose ---------- */
+const ta = $('doubt'), counter = $('counter'), releaseBtn = $('release'), toast = $('toast');
+const privateBox = $('privateMode');
+
+function autosize(){ ta.style.height = 'auto'; ta.style.height = Math.min(140, ta.scrollHeight + 2) + 'px'; }
+function updateCompose(){
+  if(ta.value.length > 500) ta.value = ta.value.slice(0, 500);
+  const len = ta.value.length, left = 500 - len;
+  releaseBtn.disabled = ta.value.trim().length === 0;
+  counter.textContent = left === 0 ? 'Limit reached' : `${left} left`;
+  counter.classList.toggle('show', left <= 100);
+  counter.classList.toggle('limit', left === 0);
+  autosize();
+}
+ta.addEventListener('input', updateCompose);
+ta.addEventListener('keydown', e => {
+  if(e.key === 'Enter' && (e.metaKey || e.ctrlKey)){ e.preventDefault(); $('composeForm').requestSubmit(); }
+});
+
+let lastPrompt = -1;
+$('inspire').addEventListener('click', () => {
+  let i; do { i = Math.floor(Math.random()*PROMPTS.length); } while(i === lastPrompt && PROMPTS.length > 1);
+  lastPrompt = i;
+  ta.value = PROMPTS[i]; updateCompose(); ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+});
+
+let toastTimer = null;
+function say(msg, ms = 2600){
+  toast.textContent = msg; toast.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove('show'), ms);
+}
+
+/* local saving */
+function savedNotes(){ return store.get(KEY_NOTES, []).filter(n => n && typeof n.t === 'string'); }
+function saveNote(n){
+  const arr = savedNotes();
+  arr.push({ t:n.text, ts:n.ts, id:n.id, rid:n.remoteId || null });
+  while(arr.length > MAX_SAVED) arr.shift();
+  store.set(KEY_NOTES, arr);
+}
+function updateMineCount(){
+  const n = savedNotes().length;
+  $('mineCount').textContent = n === 0 ? 'You have no saved lanterns in this browser.'
+    : `You have ${n} lantern${n === 1 ? '' : 's'} saved in this browser.`;
+  $('clearMine').hidden = n === 0;
+}
+
+privateBox.checked = store.get(KEY_PRIVATE, '0') === '1' || store.get(KEY_PRIVATE, 0) === 1;
+privateBox.addEventListener('change', () => store.set(KEY_PRIVATE, privateBox.checked ? '1' : '0'));
+
+let lastRelease = 0;
+$('composeForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const text = ta.value.trim().replace(/\n{3,}/g, '\n\n').slice(0, 500);
+  if(!text) return;
+  if(Date.now() - lastRelease < 4000){ say('Breathe a moment before the next one.'); return; }
+  lastRelease = Date.now();
+
+  const n = { text, ts: Date.now(), id: uid(), mine: true };
+  makeLantern(n, { launch: true });
+  ta.value = ''; updateCompose();
+
+  if(privateBox.checked){
+    say('Released for this moment only. It won’t be saved.');
+    return;
+  }
+  if(sharedOn && !looksAbusive(text)){
+    say('Your lantern joined the drift.');
+    const rid = await shared.add(text);
+    if(rid) n.remoteId = rid;
+  }else{
+    say(sharedOn ? 'Your lantern joined the drift (kept on this device).' : 'Your lantern joined the drift.');
+  }
+  saveNote(n);
+  updateMineCount();
+});
+
+/* ---------- shared lanterns (Supabase REST, no library) ---------- */
+const BLOCK = /\b(n[i1]gg|f[a@]gg?[o0]t|k[i1]ke|sp[i1]c|ch[i1]nk|retard|kill yourself|kys)\w*/i;
+function looksAbusive(t){ return BLOCK.test(t) || /(https?:\/\/|www\.)/i.test(t); }
+
+const shared = {
+  seen: new Set(),
+  headers(){
+    const h = { apikey: SHARED.anonKey, 'Content-Type':'application/json' };
+    // legacy anon keys are JWTs ("eyJ..."); new sb_publishable_ keys go in the apikey header only
+    if(SHARED.anonKey.startsWith('eyJ')) h.Authorization = 'Bearer ' + SHARED.anonKey;
+    return h;
+  },
+  async fetchLatest(limit = 60){
+    try{
+      const r = await fetch(`${SHARED.url}/rest/v1/lanterns?select=id,text,created_at&order=created_at.desc&limit=${limit}`, { headers: this.headers() });
+      if(!r.ok) throw new Error(r.status);
+      return await r.json();
+    }catch(err){ console.warn('[34 Lanterns] could not load shared lanterns', err); return []; }
+  },
+  async add(text){
+    try{
+      const r = await fetch(`${SHARED.url}/rest/v1/lanterns?select=id`, {
+        method:'POST', headers: { ...this.headers(), Prefer:'return=representation' },
+        body: JSON.stringify({ text })
+      });
+      if(!r.ok) throw new Error(r.status);
+      const [row] = await r.json();
+      if(row){ this.seen.add(row.id); return row.id; }
+    }catch(err){ console.warn('[34 Lanterns] could not share lantern', err); }
+    return null;
+  },
+  async report(id){
+    try{
+      const r = await fetch(`${SHARED.url}/rest/v1/rpc/flag_lantern`, {
+        method:'POST', headers: this.headers(), body: JSON.stringify({ lantern_id: id })
+      });
+      return r.ok;
+    }catch{ return false; }
+  }
+};
+
+async function loadShared(initial){
+  const rows = await shared.fetchLatest(initial ? 60 : 20);
+  let added = 0;
+  rows.reverse().forEach((row, i) => {
+    if(shared.seen.has(row.id)) return;
+    shared.seen.add(row.id);
+    makeLantern({ text: row.text, ts: Date.parse(row.created_at), remoteId: row.id }, { fadeIn: initial ? 1 : 0 });
+    added++;
+  });
+  return added;
+}
+
+noteReport.addEventListener('click', async () => {
+  const l = selected; if(!l || !l.note.remoteId) return;
+  const reported = store.get(KEY_REPORTED, []);
+  if(!reported.includes(l.note.remoteId)){
+    await shared.report(l.note.remoteId);
+    reported.push(l.note.remoteId); store.set(KEY_REPORTED, reported.slice(-200));
+  }
+  const i = lanterns.indexOf(l); if(i >= 0) lanterns.splice(i, 1);
+  closeNote(); renderList();
+  say('Thank you. That lantern has been reported.');
+});
+
+/* ---------- sound ---------- */
+const audio = $('crickets'), soundBtn = $('sound'), soundLabel = $('soundLabel');
+let soundOn = store.get(KEY_SOUND, false) === true;
+let fadeRaf = null;
+function fadeTo(target, ms, done){
+  cancelAnimationFrame(fadeRaf);
+  const start = audio.volume, t0 = performance.now();
+  const step = now => {
+    const k = Math.min(1, (now - t0)/ms);
+    audio.volume = clamp(start + (target - start)*k, 0, 1);
+    if(k < 1) fadeRaf = requestAnimationFrame(step); else if(done) done();
+  };
+  fadeRaf = requestAnimationFrame(step);
+}
+function setSoundUI(){
+  soundBtn.setAttribute('aria-pressed', String(soundOn));
+  soundLabel.textContent = soundOn ? 'Crickets on' : 'Crickets';
+}
+async function startSound(){
+  try{
+    audio.volume = 0; await audio.play();
+    fadeTo(0.55, 2500);
+    return true;
+  }catch{ return false; }
+}
+soundBtn.addEventListener('click', async () => {
+  soundOn = !soundOn;
+  if(soundOn){ if(!(await startSound())){ soundOn = false; say('The sound could not be played here.'); } }
+  else fadeTo(0, 800, () => audio.pause());
+  store.set(KEY_SOUND, soundOn); setSoundUI();
+});
+audio.addEventListener('error', () => { soundBtn.disabled = true; soundBtn.title = 'Sound unavailable'; soundOn = false; setSoundUI(); });
+setSoundUI();
+// browsers block autoplay; resume on the first interaction if it was on last time
+if(soundOn){
+  const resume = async () => { if(soundOn && audio.paused) await startSound(); };
+  window.addEventListener('pointerdown', resume, { once:true });
+  window.addEventListener('keydown', resume, { once:true });
+}
+
+/* ---------- about ---------- */
+const about = $('about');
+$('aboutBtn').addEventListener('click', () => { updateMineCount(); about.showModal(); });
+$('aboutClose').addEventListener('click', () => about.close());
+about.addEventListener('click', e => { if(e.target === about) about.close(); });
+let clearArmed = null;
+$('clearMine').addEventListener('click', () => {
+  const btn = $('clearMine');
+  if(!clearArmed){
+    btn.textContent = 'Tap again to remove them';
+    clearArmed = setTimeout(() => { clearArmed = null; btn.textContent = 'Clear my saved lanterns'; }, 4000);
+    return;
+  }
+  clearTimeout(clearArmed); clearArmed = null; btn.textContent = 'Clear my saved lanterns';
+  store.del(KEY_NOTES);
+  for(let i=lanterns.length-1; i>=0; i--) if(lanterns[i].note.mine) lanterns.splice(i, 1);
+  renderList(); updateMineCount(); closeNote();
+  say('Your saved lanterns have been cleared.');
+});
+if(sharedOn){
+  $('storageNote').textContent = 'Released lanterns are shared: everyone who visits sees them. Tick “Keep private” to keep yours on this device only. Use “Report” on any note that doesn’t belong.';
+}
+
+/* ---------- welcome (first visit only) ---------- */
+const KEY_WELCOMED = 'adrift_welcomed_v1';
+const welcome = $('welcome');
+function showWelcome(){
+  welcome.hidden = false; welcome.classList.remove('leaving');
+  requestAnimationFrame(() => requestAnimationFrame(() => welcome.classList.add('show')));
+  setTimeout(() => $('beginSound').focus({preventScroll:true}), 300);
+}
+function hideWelcome(){
+  store.set(KEY_WELCOMED, true);
+  welcome.classList.add('leaving'); welcome.classList.remove('show');
+  setTimeout(() => { welcome.hidden = true; welcome.classList.remove('leaving'); ta.focus({preventScroll:true}); }, 900);
+}
+$('beginSound').addEventListener('click', async () => {
+  hideWelcome();
+  if(!soundOn){
+    soundOn = await startSound();
+    store.set(KEY_SOUND, soundOn); setSoundUI();
+  }
+});
+$('beginQuiet').addEventListener('click', hideWelcome);
+welcome.addEventListener('keydown', e => {
+  if(e.key === 'Escape') hideWelcome();
+  if(e.key === 'Tab'){ // keep focus inside the welcome card
+    const a = $('beginSound'), b = $('beginQuiet');
+    if(e.shiftKey && document.activeElement === a){ e.preventDefault(); b.focus(); }
+    else if(!e.shiftKey && document.activeElement === b){ e.preventDefault(); a.focus(); }
+  }
+});
+$('showWelcome').addEventListener('click', () => { about.close(); showWelcome(); });
+if(!store.get(KEY_WELCOMED, false)) setTimeout(showWelcome, 700);
+
+/* ---------- idle dimming ---------- */
+let idleTimer = null;
+function wake(){ document.body.classList.remove('idle'); clearTimeout(idleTimer); idleTimer = setTimeout(() => document.body.classList.add('idle'), 12000); }
+['pointermove','pointerdown','keydown','touchstart'].forEach(ev => addEventListener(ev, wake, { passive:true }));
+wake();
+
+/* ---------- start ---------- */
+addEventListener('resize', resize, { passive:true });
+resize();
+
+// seed lanterns: three on the water, two rising
+SEED_NOTES.forEach((text, i) => makeLantern({ text, seed:true }, {
+  mode: i < 3 ? 'float' : 'rise',
+  z: [0.95, 0.6, 0.78, 0.7, 0.88][i],
+  x: [0.18, 0.55, 0.82, 0.32, 0.68][i] * W,
+  y: i >= 3 ? horizon * [0.55, 0.3][i-3] : undefined
+}));
+
+// visitor's own saved lanterns
+savedNotes().forEach(s => {
+  if(s.rid) shared.seen.add(s.rid);
+  makeLantern({ text:s.t, ts:s.ts, id:s.id, remoteId:s.rid || null, mine:true });
+});
+
+if(sharedOn){
+  loadShared(true);
+  setInterval(() => { if(!document.hidden) loadShared(false); }, 60000);
+}
+
+updateCompose();
+requestAnimationFrame(frame);
 })();
 </script>
-
 </body>
 </html>
