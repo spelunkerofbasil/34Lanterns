@@ -433,7 +433,10 @@ let shooting = null, nextShooting = performance.now() + rand(15000, 40000);
 
 /* lantern sprite */
 const sprite = { img:null, ready:false, ar:1.35, blend:'source-over' };
-(function loadSprite(){
+// The original lantern image has a reflection painted into it, which looks wrong once a lantern
+// rises into the sky. Lanterns are drawn in code instead; set to true to go back to the image.
+const USE_LANTERN_IMAGE = false;
+if(USE_LANTERN_IMAGE) (function loadSprite(){
   const tryLoad = (src, blend, next) => {
     const im = new Image();
     im.crossOrigin = 'anonymous';
