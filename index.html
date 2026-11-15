@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>34 Lanterns</title>
-<meta name="description" content="34 Lanterns — an interactive app from 34 Gallery. A quiet place to set something free: release a doubt, wish, promise or fear as a lantern, and read the lanterns already drifting by.">
+<meta name="description" content="34 Lanterns — an interactive piece from 34 Gallery. A quiet place to set something down: release a doubt, wish, promise or fear as a lantern, and read the lanterns already drifting.">
 <style>
   :root{
     --ink:#eef4fb;
@@ -34,7 +34,7 @@
   }
   header h1{
     margin:0; font-weight:400; font-size:clamp(22px,3.2vw,34px);
-    letter-spacing:.32em; text-indent:.32em; 
+    letter-spacing:.32em; text-indent:.32em; text-transform:lowercase;
     text-shadow:0 0 18px rgba(255,200,130,.25);
   }
   header p{margin:.35em 0 0; color:var(--muted); font-style:italic; font-size:clamp(13px,1.4vw,16px); letter-spacing:.04em}
@@ -178,7 +178,7 @@
     transform:translateY(10px); transition:transform 1.2s ease;
   }
   .welcome.show .card{transform:none}
-  .welcome h2{margin:0; font-weight:400; font-size:clamp(24px,5vw,32px); letter-spacing:.3em; text-indent:.3em;}
+  .welcome h2{margin:0; font-weight:400; font-size:clamp(24px,5vw,32px); letter-spacing:.3em; text-indent:.3em; text-transform:lowercase}
   .welcome .lede{margin:.5em 0 1.1em; font-style:italic; color:var(--warm); font-size:18px}
   .welcome p{line-height:1.6; font-size:16px; margin:0 0 1em}
   .welcome h3{margin:1.3em 0 .6em; font-family:system-ui,sans-serif; font-weight:600; font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted)}
@@ -213,14 +213,14 @@
 
 <header>
   <h1>34 Lanterns</h1>
-  <p>A quiet place to set something free.</p>
+  <p>A quiet place to set something down.</p>
 </header>
 
 <div class="welcome" id="welcome" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle" hidden>
   <div class="card">
     <h2 id="welcomeTitle">34 Lanterns</h2>
-    <p class="lede">A quiet place to set something free.</p>
-    <p>Write what you’ve been carrying: a doubt, a wish, a promise you’ve made, a fear you’d rather not hold alone, a thank-you you never said. Release it as a lantern onto the water, then stay a while with the lanterns already drifting by.</p>
+    <p class="lede">A quiet place to set something down.</p>
+    <p>Write what you’ve been carrying: a doubt, a wish, a promise you’ve made, a fear you’d rather not hold alone, a thank-you you never said. Release it as a lantern onto the water, then stay a while with the lanterns already drifting.</p>
     <h3>Quick start</h3>
     <ol>
       <li><b>1</b><span>Tap a lantern to read the note it carries.</span></li>
@@ -289,7 +289,7 @@
 <dialog id="about" aria-labelledby="aboutTitle">
   <button class="x" type="button" id="aboutClose" aria-label="Close About">✕</button>
   <h2 id="aboutTitle">About this piece</h2>
-  <p>A quiet place to set something free. Lanterns drift on still water and rise into the night sky, each carrying something a person chose to let go of: a doubt, a wish, a promise, a fear. Read the ones already adrift, or write your own and release it.</p>
+  <p>A quiet place to set something down. Lanterns drift on still water and rise into the night sky, each carrying something a person chose to let go of: a doubt, a wish, a promise, a fear. Read the ones already adrift, or write your own and release it.</p>
   <p class="meta"><button type="button" class="linkish" id="showWelcome">Show the welcome &amp; quick start again</button></p>
 
   <h3>How it works</h3>
@@ -303,7 +303,7 @@
 
   <h3>Credits</h3>
   <dl class="credits">
-    <dt>Concept</dt><dd><em>Adrift.site</em></dd>
+    <dt>Concept &amp; design</dt><dd><em>Adrift.site</em></dd>
     <dt>Adaptation</dt><dd>Lawrence Lee, 34 Gallery Art Advisor</dd>
     <dt>Development</dt><dd>ChatGPT (GPT‑5 Thinking) and Claude (Anthropic)</dd>
     <dt>Ambient audio</dt><dd>Sound effect by Georg Arnold</dd>
